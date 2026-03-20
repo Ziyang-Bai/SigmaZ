@@ -4,9 +4,10 @@
 
 **SigmaZ** is a benchmarking utility for Windows systems, supporting environments from **Windows 3.1** to **Windows 11**. It compiles to native Win16, Win32 and Win64 executables to run on hardware ranging from 486 PCs to modern multi-core workstations.
 
-![SigmaZ Screenshot](https://via.placeholder.com/640x480.png?text=SigmaZ+Benchmark+UI)
+![SigmaZ On Windows 95](assets/win95.png)
+![SigmaZ 64+32](assets/64+32.png)
 
-## 🎯 Key Features
+## Key Features
 
 *   **Multi-Platform**: Native executables for Win16 (286/386/486), Win32 (Win9x/NT), and Win64 (Modern x64).
 *   **Performance Metrics**: Scores are normalized against a baseline **Intel 486 DX2-66** (100 points).
@@ -14,7 +15,7 @@
 
 For detailed test descriptions and algorithms, please check the [Benchmark Definitions](docs/en/benchmark_defs.md).
 
-## 🚀 Getting Started
+## Getting Started
 
 1.  Download the latest release or build from source.
 2.  Choose the correct executable for your system:
@@ -25,7 +26,7 @@ For detailed test descriptions and algorithms, please check the [Benchmark Defin
 
 Check [Quick Start](docs/en/quick_start.md) for more details.
 
-## 🛠️ Building
+## Building
 
 SigmaZ requires **Open Watcom v2** (for Win16/32) and **Visual Studio / MSVC** (for Win64).
 
@@ -35,7 +36,7 @@ SigmaZ requires **Open Watcom v2** (for Win16/32) and **Visual Studio / MSVC** (
 
 See [Technical Details](docs/en/technical.md) for full compilation instructions.
 
-## 📚 Documentation
+## Documentation
 
 Detailed documentation is available in the `docs/` folder or the compiled CHM help file.
 
@@ -48,13 +49,8 @@ Detailed documentation is available in the `docs/` folder or the compiled CHM he
 ## License
 
 This project is open source. See [LICENSE](LICENSE) for details.
-3.  Run the x64 build script:
-    ```cmd
-    .\build_x64.bat
-    ```
-4.  This will generate `sigma64.exe`.
 
-## 📂 Project Structure
+## Project Structure
 
 *   `main.c`: Entry point, UI handling, and test orchestration.
 *   `bench.c`: Core integer benchmark (Pi calculation) and threading logic.
@@ -64,11 +60,11 @@ This project is open source. See [LICENSE](LICENSE) for details.
 *   `sigmaz.rc`: Resource script defining the GUI layout.
 *   `help/`: Source files for the CHM help documentation.
 
-## 📝 License
+## License
 
 This project is open-source. See the [LICENSE](LICENSE) file for details.
 
-## ⚠️ Disclaimer
+## Disclaimer
 
 This tool puts significant stress on your hardware (`CPU` and `RAM`). While protections are in place, run it at your own risk on unstable or overclocked systems.
 
