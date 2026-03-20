@@ -1,0 +1,88 @@
+/*
+ * SigmaZ
+ * Copyright (c) 2026 Ziyang Bai
+ * Licensed under the GNU General Public License v3.0
+ */
+
+#include <windows.h>
+#include "resource.h"
+
+IDD_MAIN_DLG DIALOG 10, 10, 240, 150
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "SigmaZ Bench"
+FONT 8, "Helv"
+BEGIN
+    /* --- Tab Selectors (Row 1) --- */
+    PUSHBUTTON "CPU",    IDC_TAB_CPU,     5, 5, 30, 14
+    PUSHBUTTON "Int",    IDC_TAB_INT,    40, 5, 30, 14
+    PUSHBUTTON "Float",  IDC_TAB_FLOAT,  75, 5, 30, 14
+    PUSHBUTTON "Mem",    IDC_TAB_MEM,   110, 5, 30, 14
+    PUSHBUTTON "Cryp",   IDC_TAB_CRY,   145, 5, 30, 14
+    PUSHBUTTON "Comp",   IDC_TAB_CMP,   180, 5, 30, 14
+    
+    /* --- Tab Selectors (Row 2) --- */
+    PUSHBUTTON "Matrx",  IDC_TAB_MAT,     5, 22, 30, 14
+    PUSHBUTTON "All",    IDC_TAB_ALL,    40, 22, 30, 14
+    PUSHBUTTON "About",  IDC_TAB_ABOUT,  75, 22, 30, 14
+    
+    /* groups start at 40 */
+
+    /* --- TAB 1: CPU INFO --- */
+    GROUPBOX  "Processor Info", IDC_CPU_GRP, 5, 40, 230, 105
+    
+    EDITTEXT  IDC_CPU_REPORT, 15, 60, 210, 75, ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY | WS_VSCROLL | WS_BORDER
+
+    /* --- TAB 2: INTEGER --- */
+    GROUPBOX  "Integer (Machin-Pi)", IDC_INT_GRP, 5, 40, 230, 105, NOT WS_VISIBLE
+    PUSHBUTTON "Single-Thread", IDC_INT_BTN_S, 15, 55, 60, 14, NOT WS_VISIBLE
+    PUSHBUTTON "Multi-Thread",  IDC_INT_BTN_M, 85, 55, 60, 14, NOT WS_VISIBLE
+    EDITTEXT  IDC_INT_REPORT, 15, 75, 210, 60, ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY | WS_VSCROLL | WS_BORDER, NOT WS_VISIBLE
+    CTEXT     "Ready", IDC_INT_PROG, 60, 137, 120, 8, NOT WS_VISIBLE
+
+    /* --- TAB 3: FLOAT --- */
+    GROUPBOX  "Float (Mandelbrot)", IDC_FLOAT_GRP, 5, 40, 230, 105, NOT WS_VISIBLE
+    PUSHBUTTON "Run Benchmark", IDC_FLOAT_BTN, 15, 55, 80, 14, NOT WS_VISIBLE
+    EDITTEXT  IDC_FLOAT_REPORT, 15, 75, 210, 60, ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY | WS_VSCROLL | WS_BORDER, NOT WS_VISIBLE
+    CTEXT     "Ready", IDC_FLOAT_PROG, 60, 137, 120, 8, NOT WS_VISIBLE
+    
+    /* --- TAB 4: MEMORY --- */
+    GROUPBOX  "Memory (Stream)", IDC_MEM_GRP, 5, 40, 230, 105, NOT WS_VISIBLE
+    PUSHBUTTON "Run Benchmark", IDC_MEM_BTN, 15, 55, 80, 14, NOT WS_VISIBLE
+    EDITTEXT  IDC_MEM_REPORT, 15, 75, 210, 60, ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY | WS_VSCROLL | WS_BORDER, NOT WS_VISIBLE
+    CTEXT     "Ready", IDC_MEM_PROG, 60, 137, 120, 8, NOT WS_VISIBLE
+
+    /* --- TAB 5: CRYPTO (NEW) --- */
+    GROUPBOX  "Cryptography (CRC32)", IDC_CRY_GRP, 5, 40, 230, 105, NOT WS_VISIBLE
+    PUSHBUTTON "Run Benchmark", IDC_CRY_BTN, 15, 55, 80, 14, NOT WS_VISIBLE
+    EDITTEXT  IDC_CRY_REPORT, 15, 75, 210, 60, ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY | WS_VSCROLL | WS_BORDER, NOT WS_VISIBLE
+    CTEXT     "Ready", IDC_CRY_PROG, 60, 137, 120, 8, NOT WS_VISIBLE
+    
+    /* --- TAB 6: COMPRESS (NEW) --- */
+    GROUPBOX  "Compression (LZ77)", IDC_CMP_GRP, 5, 40, 230, 105, NOT WS_VISIBLE
+    PUSHBUTTON "Run Benchmark", IDC_CMP_BTN, 15, 55, 80, 14, NOT WS_VISIBLE
+    EDITTEXT  IDC_CMP_REPORT, 15, 75, 210, 60, ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY | WS_VSCROLL | WS_BORDER, NOT WS_VISIBLE
+    CTEXT     "Ready", IDC_CMP_PROG, 60, 137, 120, 8, NOT WS_VISIBLE
+
+    /* --- TAB 7: MATRIX (NEW) --- */
+    GROUPBOX  "Matrix Math", IDC_MAT_GRP, 5, 40, 230, 105, NOT WS_VISIBLE
+    PUSHBUTTON "Run Benchmark", IDC_MAT_BTN, 15, 55, 80, 14, NOT WS_VISIBLE
+    EDITTEXT  IDC_MAT_REPORT, 15, 75, 210, 60, ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY | WS_VSCROLL | WS_BORDER, NOT WS_VISIBLE
+    CTEXT     "Ready", IDC_MAT_PROG, 60, 137, 120, 8, NOT WS_VISIBLE
+
+    /* --- TAB 8: ALL (SUMMARY) --- */
+    GROUPBOX  "Benchmark Summary", IDC_ALL_GRP, 5, 40, 230, 105, NOT WS_VISIBLE
+    
+    PUSHBUTTON "Start All Tests", IDC_ALL_BTN, 15, 55, 80, 14, NOT WS_VISIBLE
+    
+    EDITTEXT  IDC_ALL_REPORT, 15, 75, 210, 60, ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY | WS_VSCROLL | WS_BORDER, NOT WS_VISIBLE
+    CTEXT     "Ready", IDC_ALL_PROG, 60, 137, 120, 8, NOT WS_VISIBLE
+
+    /* --- TAB 9: ABOUT --- */
+    GROUPBOX  "About SigmaZ", IDC_ABOUT_GRP, 5, 40, 230, 105, NOT WS_VISIBLE
+    EDITTEXT  IDC_ABOUT_REPORT, 15, 60, 210, 75, ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY | WS_VSCROLL | WS_BORDER, NOT WS_VISIBLE
+END
+
+STRINGTABLE
+BEGIN
+    IDS_STARTUP_HINT "Welcome to SigmaZ Benchmark.\n\nThe Generic Microsoft(R) Windows(R) PC Performance Evaluation Utility.\n\nUse the tabs to select specific tests or click 'All' for a full tests.\n\nWarning: Benchmarks may cause the system to become unresponsive for short periods.\n\nCopyright (c) 2026 Ziyang Bai"
+END

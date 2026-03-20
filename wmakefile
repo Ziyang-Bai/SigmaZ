@@ -1,0 +1,31 @@
+# SigmaLM Win16/Win32 Makefile
+# Assumes WATCOM in C:\WATCOM
+
+WATCOM_PATH = C:\WATCOM
+CC16 = $(WATCOM_PATH)\binnt\wcl
+CC32 = $(WATCOM_PATH)\binnt\wcl386
+RC   = $(WATCOM_PATH)\binnt\wrc
+
+all : sigma16.exe sigma32.exe .SYMBOLIC
+
+# Win16 Build (Small/Medium model for code, but we use -fm for map. Standard win16 uses compact/large for data usually, but small is faster if fits)
+# Adding -ml (large model) might be needed for 64k+ data arrays in benchmarks?
+# bench_mem uses 60kb which fits in one segment, but multiple allocations might exceed heap? No, local heap is small int default.
+# Let's use Large Model (-ml) for Win16 to be safe with >64k data total.
+sigma16.exe : main.c detect.c bench.c bench_float.c bench_mem.c bench_crypto.c bench_compress.c bench_matrix.c timer.c sigmaz.rc
+    $(RC) -q -r -bt=windows -i=$(WATCOM_PATH)\h -i=$(WATCOM_PATH)\h\win -fo=sigma16.res sigmaz.rc
+    $(CC16) -q -w4 -ml -bt=windows -i=$(WATCOM_PATH)\h -i=$(WATCOM_PATH)\h\win -l=windows main.c detect.c bench.c bench_float.c bench_mem.c bench_crypto.c bench_compress.c bench_matrix.c timer.c -fe=sigma16.exe
+    $(RC) -q sigma16.res sigma16.exe
+
+# Win32 Build
+sigma32.exe : main.c detect.c bench.c bench_float.c bench_mem.c bench_crypto.c bench_compress.c bench_matrix.c timer.c sigmaz.rc
+    $(RC) -q -r -bt=nt -i=$(WATCOM_PATH)\h -i=$(WATCOM_PATH)\h\nt -fo=sigma32.res sigmaz.rc
+    $(CC32) -d_WIN32 -q -w4 -bt=nt -l=nt_win -i=$(WATCOM_PATH)\h -i=$(WATCOM_PATH)\h\nt main.c detect.c bench.c bench_float.c bench_mem.c bench_crypto.c bench_compress.c bench_matrix.c timer.c -fe=sigma32.exe
+    $(RC) -q sigma32.res sigma32.exe
+
+clean : .SYMBOLIC
+    del *.obj
+    del *.err
+    del *.exe
+    del *.res
+    del *.map
