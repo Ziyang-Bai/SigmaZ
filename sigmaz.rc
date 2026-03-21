@@ -46,7 +46,7 @@ BEGIN
     CTEXT     "Ready", IDC_FLOAT_PROG, 60, 137, 120, 8, NOT WS_VISIBLE
     
     /* --- TAB 4: MEMORY --- */
-    GROUPBOX  "Memory (Stream)", IDC_MEM_GRP, 5, 40, 230, 105, NOT WS_VISIBLE
+    GROUPBOX  "Memory Ops (Stream)", IDC_MEM_GRP, 5, 40, 230, 105, NOT WS_VISIBLE
     PUSHBUTTON "Run Benchmark", IDC_MEM_BTN, 15, 55, 80, 14, NOT WS_VISIBLE
     EDITTEXT  IDC_MEM_REPORT, 15, 75, 210, 60, ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY | WS_VSCROLL | WS_BORDER, NOT WS_VISIBLE
     CTEXT     "Ready", IDC_MEM_PROG, 60, 137, 120, 8, NOT WS_VISIBLE
@@ -84,5 +84,5 @@ END
 
 STRINGTABLE
 BEGIN
-    IDS_STARTUP_HINT "Welcome to SigmaZ Benchmark.\n\nThe Generic Microsoft(R) Windows(R) PC Performance Evaluation Utility.\n\nUse the tabs to select specific tests or click 'All' for a full tests.\n\nWarning: Benchmarks may cause the system to become unresponsive for short periods.\n\nCopyright (c) 2026 Ziyang Bai"
+    IDS_STARTUP_HINT "Welcome to SigmaZ.\n\nThe Generic PC Processor Performance Evaluation Utility.\n\nUse the tabs to select specific tests or click 'All' for a full tests.\n\nTimeout policy:\n- Int/Float/Crypto/Compress/Matrix: 20s cap\n- Mem Ops: fixed duration bandwidth window\n\nWarning: Benchmarks may cause the system to become unresponsive for short periods.\n\nCopyright (c) 2026 Ziyang Bai"
 END

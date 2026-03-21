@@ -27,15 +27,16 @@ z(n+1) = z(n)^2 + c
 
 **Technical Specifications:** 
 -   **Processor Unit:** Floating Point Unit (FPU).
--   **Hardware Detection:** Affectively measures coprocessor (e.g., 80387) performance on early systems.
--   **Calculation Scale:** Win16 version uses 320x240 resolution, Win32/64 versions use 800x600 resolution.
+-   **Hardware Detection:** Effectively reflects coprocessor (e.g., 80387) performance on early systems.
+-   **Calculation Scale:** Win16 uses 320x240 resolution, Win32/64 uses 800x600 resolution, with a max iteration limit of 1000.
+-   **Stop Condition:** Controlled by the global timeout mechanism; timed-out runs are scored by completed work.
 
-### 3. Memory (Memory Throughput)
+### 3. Memory Ops (Memory Operations)
 
-**Test Content:** Performs streaming read/write operations (Stream Copy) on large blocks of contiguous memory.
+**Test Content:** Performs streaming read/write operations (Stream Copy) on large blocks of contiguous memory.                                                  
 
-**Technical Specifications:** 
--   **Test Target:** RAM bandwidth, bus speed.
+**Technical Specifications:**
+-   **Test Target:** CPU's capability to process memory operations, RAM bandwidth, bus speed.
 
 ### 4. Crypto (Encryption/Decryption)
 
@@ -70,4 +71,5 @@ CRC(x) = M(x) * x^32 mod G(x)
 
 **Technical Specifications:** 
 -   **Test Target:** CPU cache hierarchy (L1/L2/L3), floating-point throughput.
+-   **Scoring Unit:** Matrices/s (completed 64x64 matrix multiplications per second).
 -   **Optimization Potential:** On modern processors, this test can demonstrate optimizations from SIMD instruction sets (like SSE/AVX) via auto-vectorization (if supported by compiler and OS).

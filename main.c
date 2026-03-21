@@ -52,23 +52,23 @@ static double CalcTotalScore(double s_int, double s_float, double s_mem, double 
     if (s_mat < 1.0) s_mat = 1.0;
     
     /* 
-     * Weights: 
+     * Weights:
      * Integer: 20%
      * Float: 20%
-     * Mem: 20%
+     * Mem Ops: 10%
      * Crypto: 15%
      * Compress: 15%
-     * Matrix: 10%
+     * Matrix: 20%
      */
     {
-        double log_sum = 
-            log(s_int) * 0.20 + 
-            log(s_float) * 0.20 + 
-            log(s_mem) * 0.20 + 
-            log(s_crypto) * 0.15 + 
-            log(s_comp) * 0.15 + 
-            log(s_mat) * 0.10;
-            
+        double log_sum =
+            log(s_int) * 0.20 +
+            log(s_float) * 0.20 +
+            log(s_mem) * 0.10 +
+            log(s_crypto) * 0.15 +
+            log(s_comp) * 0.15 +
+            log(s_mat) * 0.20;
+
         return exp(log_sum);
     }
 }
@@ -312,12 +312,12 @@ void RunMem(HWND hwnd) {
     char buf[1024];
     
     g_ProgID = IDC_MEM_PROG;
-    SetDlgItemText(hwnd, g_ProgID, "Running Stream Memory...");
+    SetDlgItemText(hwnd, g_ProgID, "Running Memory Ops...");
     SetButtonsEnable(hwnd, FALSE);
     
     g_ScoreMem = RunMemoryBenchmark(BenchCallbackBridge);
     
-    sprintf(buf, "--- Memory Performance Report ---\r\n\r\n"
+    sprintf(buf, "--- Memory Ops Performance Report ---\r\n\r\n"
                  "Operation: RAM Bandwidth (Mix Read/Write)\r\n"
                  "Bandwidth: %lu MB/s\r\n"
                  "Normalized: %.2f%% (vs 486)",
@@ -385,6 +385,7 @@ void RunMatrix(HWND hwnd) {
                    "Throughput: %.2f Matrices/s\r\n"
                    "Normalized: %.2f%% (vs 486)",
                  g_ScoreMatrix, CalcScore(g_ScoreMatrix, REF_MATRIX_OPS));
+        SetReport(hwnd, IDC_MAT_REPORT, buf);
     SetDlgItemText(hwnd, g_ProgID, "Completed.");
     SetButtonsEnable(hwnd, TRUE);
 }
@@ -416,7 +417,7 @@ void RunAll(HWND hwnd) {
     g_ScoreFloat = RunFloatBenchmark(BenchCallbackBridge);
     
     /* 3. Mem */
-    SetDlgItemText(hwnd, g_ProgID, "Test 3/6: Memory...");
+    SetDlgItemText(hwnd, g_ProgID, "Test 3/6: Memory Ops...");
     g_ScoreMem = RunMemoryBenchmark(BenchCallbackBridge);
     
     /* 4. Crypto */
@@ -481,7 +482,7 @@ void RunAll(HWND hwnd) {
       sprintf(line, "Float:     %lu It/ms (Norm: %.1f)\r\n", g_ScoreFloat, n_float);
       strcat(buf, line);
 
-      sprintf(line, "Memory:    %lu MB/s (Norm: %.1f)\r\n", g_ScoreMem, n_mem);
+      sprintf(line, "Mem Ops:   %lu MB/s (Norm: %.1f)\r\n", g_ScoreMem, n_mem);
       strcat(buf, line);
 
       sprintf(line, "Crypto:    %.0f KB/s (Norm: %.1f)\r\n", g_ScoreCrypto, n_crypto);
@@ -553,10 +554,16 @@ BOOL CALLBACK MainDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             "Workloads:\r\n"
             "- Integer: Machin-Pi (Single/Multi)\r\n"
             "- Float: Mandelbrot Set (Double Precision)\r\n"
-            "- Memory: Stream-like Bandwidth\r\n"
+            "- Mem Ops: Stream-like Bandwidth\r\n"
             "- Crypto: CRC32 Throughput\r\n"
             "- Compress: LZ77 Sliding Window\r\n"
             "- Matrix: Basic O(N^3) Multiplication\r\n\r\n"
+            "Scoring:\r\n"
+            "- Baseline: Intel 486 DX2-66 = 100\r\n"
+            "- Total score: weighted geometric mean\r\n\r\n"
+            "Timeout:\r\n"
+            "- Int/Float/Crypto/Compress/Matrix: 20s cap\r\n"
+            "- Mem Ops: fixed duration bandwidth window\r\n\r\n"
             "Open Source Project. Licensed under the GNU General Public License v3.0\r\n"
             "Copyright (c) Ziyang Bai 2026.");
         

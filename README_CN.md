@@ -1,8 +1,8 @@
-# SigmaZ 基准测试工具
+# SigmaZ - Windows个人电脑通用微处理器测试
 
 [Documentation (English)](docs/en/index.md) | [中文文档 (Chinese)](docs/zh/index.md)
 
-**SigmaZ** 是一个跨平台的基准测试程序，支持从 **Windows 3.1** 到 **Windows 11** 的 Windows 系统。包含 Win16、Win32 和 Win64 三个原生版本，可运行于 486 到现代多核处理器等不同硬件平台。
+**SigmaZ** 是一款跨时代的 Windows个人电脑通用微处理器测试 程序，支持从 **Windows 3.1** 到 **Windows 11** 的 Windows 系统。包含 Win16、Win32 和 Win64 三个原生版本，可运行于 486 到现代多核处理器等不同硬件平台。
 
 ![SigmaZ On Windows 95](assets/win95.png)
 ![SigmaZ 64+32](assets/64+32.png)
@@ -11,7 +11,8 @@
 
 *   **多平台支持**：原生编译的 Win16 (286/386/486)、Win32 (Win9x/NT) 和 Win64 (现代 x64) 可执行文件。
 *   **性能评分**：分数以 1994 年的主流配置 **Intel 486 DX2-66** 为基准（100 分）。
-*   **全面测试**：包含整数 (Pi)、浮点 (Mandelbrot)、内存、加密 (CRC32)、压缩 (LZ77) 和矩阵运算。
+*   **全面测试**：包含整数 (Pi)、浮点 (Mandelbrot)、内存操作、加密 (CRC32)、压缩 (LZ77) 和矩阵运算。
+*   **超时策略**：整数/浮点/加密/压缩/矩阵测试默认 20 秒超时结算；内存操作使用固定时长窗口测量带宽。
 
 有关测试项目和算法的详细信息，请查阅 [基准测试定义 (Benchmark Definitions)](docs/zh/benchmark_defs.md)。
 

@@ -1,4 +1,4 @@
-# SigmaZ Benchmark
+# SigmaZ - The Generic PC Processor Performance Evaluation Utility
 
 [中文文档 (Chinese)](README_CN.md) | [Documentation (English)](docs/en/index.md)
 
@@ -11,7 +11,8 @@
 
 *   **Multi-Platform**: Native executables for Win16 (286/386/486), Win32 (Win9x/NT), and Win64 (Modern x64).
 *   **Performance Metrics**: Scores are normalized against a baseline **Intel 486 DX2-66** (100 points).
-*   **Comprehensive Tests**: Integer (Pi), Float (Mandelbrot), Memory, Crypto (CRC32), Compression (LZ77), and Matrix Math.
+*   **Comprehensive Tests**: Integer (Pi), Float (Mandelbrot), Memory Ops, Crypto (CRC32), Compression (LZ77), and Matrix Math.
+*   **Timeout Strategy**: Integer/Float/Crypto/Compression/Matrix tests are capped at 20 seconds with partial scoring on timeout, while Memory Ops uses a fixed-duration bandwidth window.
 
 For detailed test descriptions and algorithms, please check the [Benchmark Definitions](docs/en/benchmark_defs.md).
 
