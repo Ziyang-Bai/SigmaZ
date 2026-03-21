@@ -28,17 +28,20 @@
  */
 #define BENCH_SCORE_SCALE 1000000UL
 
+/* Progress callback: percent range 0..100 */
+typedef void (*BENCH_CALLBACK)(int percent);
+
 /* 
  * Benchmark Timeout (ms)
  * If a test exceeds this time, it will be terminated and scored based on progress.
  * Useful for Very Old Hardware (e.g. 386/486) preventing freezes.
  */
-#define BENCH_TIMEOUT_MS 20000
+#define BENCH_TIMEOUT_MS 60000
 
-/* Callback for progress updates (0-100) */
-typedef void (*BENCH_CALLBACK)(int percent);
+/* Flag to indicate if the last benchmark was terminated early due to timeout */
+extern int g_BenchTimedOut;
 
-/* 
+/*
  * Run Integer Benchmark (Single Thread)
  * Returns SCORE (Iterations / Time normalized), not raw time.
  */

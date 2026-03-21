@@ -22,10 +22,17 @@ static int g_HasPerf = 0;
 static int g_Initialized = 0;
 
 void Timer_Init(void) {
-    if (QueryPerformanceFrequency(&g_Freq)) {
-        g_HasPerf = 1;
-    } else {
+    DWORD ver = GetVersion();
+
+    /* Win9x/ME: force GetTickCount path for stability */
+    if (ver & 0x80000000UL) {
         g_HasPerf = 0;
+    } else {
+        if (QueryPerformanceFrequency(&g_Freq)) {
+            g_HasPerf = 1;
+        } else {
+            g_HasPerf = 0;
+        }
     }
     g_Initialized = 1;
 }

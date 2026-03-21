@@ -47,7 +47,10 @@ static int mat_mul(const double *A, const double *B, double *C, int n, BENCH_CAL
     for (i = 0; i < n; i++) {
         /* Check Timeout */
         Timer_Stop();
-        if (Timer_GetElapsedMs() > BENCH_TIMEOUT_MS) return i;
+        if (Timer_GetElapsedMs() > BENCH_TIMEOUT_MS) {
+            g_BenchTimedOut = 1;
+            return i;
+        }
 
         for (j = 0; j < n; j++) {
             double sum = 0.0;
@@ -110,8 +113,9 @@ double RunMatrixBenchmark(BENCH_CALLBACK callback) {
     /* Initialize with deterministic values */
     init_matrix(A, MAT_N);
     init_matrix(B, MAT_N);
-    
+
     Timer_Init();
+    g_BenchTimedOut = 0;
     Timer_Start();
 
     {
@@ -128,7 +132,10 @@ double RunMatrixBenchmark(BENCH_CALLBACK callback) {
             }
             
             Timer_Stop();
-            if (Timer_GetElapsedMs() > BENCH_TIMEOUT_MS || rows_done < MAT_N) break;
+            if (Timer_GetElapsedMs() > BENCH_TIMEOUT_MS || rows_done < MAT_N) {
+                if (Timer_GetElapsedMs() > BENCH_TIMEOUT_MS) g_BenchTimedOut = 1;
+                break;
+            }
         }
 
         if (callback) callback(100);

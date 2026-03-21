@@ -15,6 +15,7 @@ pi/4 = 4 * arctan(1/5) - arctan(1/239)
 -   **Processor Unit:** Arithmetic Logic Unit (ALU), Integer Pipeline.
 -   **Multi-core Support:** Win32/Win64 versions support multi-threaded concurrent calculation.
 -   **Implementation Details:** Uses a custom BigInt library (based on `long` arrays) to ensure consistent results across 16-bit and 32/64-bit platforms.
+-   **Scale Parameters:** 2000-digit precision, 5-sample run with trimmed mean in single-thread mode, and a global timeout cap of 60s.
 
 ### 2. Float (Floating Point Arithmetic)
 
@@ -37,6 +38,8 @@ z(n+1) = z(n)^2 + c
 
 **Technical Specifications:**
 -   **Test Target:** CPU's capability to process memory operations, RAM bandwidth, bus speed.
+-   **Runtime Model:** Uses repeated memcpy/_fmemcpy over large buffers and reports MB/s in a fixed 3-second measurement window.
+-   **Buffer Size:** Win32 uses 32 MB, Win64 uses 128 MB, Win16 uses 8 x 60,000-byte blocks.
 
 ### 4. Crypto (Encryption/Decryption)
 
@@ -50,6 +53,7 @@ CRC(x) = M(x) * x^32 mod G(x)
 **Technical Specifications:** 
 -   **Test Target:** Bitwise operations (XOR, Shift) and random memory access (Table Lookup).
 -   **Load Characteristics:** Tests both the ALU and the CPU's efficiency in handling logical operations and cache lookups.
+-   **Workload Size:** 16 KB buffer, 100000 loops on Win32/64 and 500 loops on Win16, with a 60s timeout cap.
 
 ### 5. Compress (Data Compression)
 
@@ -60,6 +64,7 @@ CRC(x) = M(x) * x^32 mod G(x)
 **Technical Specifications:** 
 -   **Test Target:** Branch prediction, complex control flow, non-sequential memory access.
 -   **Load Characteristics:** Simulates actual file compression workloads. This test is highly sensitive to CPU L1/L2 cache hit rates.
+-   **Workload Size:** 16 KB input buffer, 4 KB sliding window, max match length 18, fixed 250 loops with 60s timeout cap.
 
 ### 6. Matrix (Matrix Calculation)
 
@@ -73,3 +78,4 @@ CRC(x) = M(x) * x^32 mod G(x)
 -   **Test Target:** CPU cache hierarchy (L1/L2/L3), floating-point throughput.
 -   **Scoring Unit:** Matrices/s (completed 64x64 matrix multiplications per second).
 -   **Optimization Potential:** On modern processors, this test can demonstrate optimizations from SIMD instruction sets (like SSE/AVX) via auto-vectorization (if supported by compiler and OS).
+-   **Loop Strategy:** Win32/64 repeats 1000 matrix multiplications, Win16 runs 1 pass; both are protected by the 60s timeout cap.

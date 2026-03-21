@@ -173,10 +173,11 @@ DWORD RunFloatBenchmark(BENCH_CALLBACK callback) {
     unsigned long total_iters = 0;
     int x, y;
     int percent_slice = HEIGHT / 20; /* Update every 5% */
-    
+
     Timer_Init();
+    g_BenchTimedOut = 0;
     Timer_Start();
-    
+
     for (y = 0; y < HEIGHT; y++) {
         double cy = -1.0 + (2.0 * y) / HEIGHT;
         
@@ -187,8 +188,11 @@ DWORD RunFloatBenchmark(BENCH_CALLBACK callback) {
 
         /* Check Timeout */
         Timer_Stop();
-        if (Timer_GetElapsedMs() > BENCH_TIMEOUT_MS) break;
-        
+        if (Timer_GetElapsedMs() > BENCH_TIMEOUT_MS) {
+            g_BenchTimedOut = 1;
+            break;
+        }
+
         for (x = 0; x < WIDTH; x++) {
             double cx = -2.0 + (3.0 * x) / WIDTH;
             total_iters += MandelbrotPt(cx, cy);

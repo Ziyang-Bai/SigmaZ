@@ -22,6 +22,8 @@
 #include "detect.h"
 #include "timer.h"
 
+int g_BenchTimedOut = 0;
+
 /* Number of digits to calculate */
 #define DIGITS 2000
 /* Base for the array elements (10000 allows storing 4 digits per int) */
@@ -184,7 +186,10 @@ static int DoBenchmarkWork(BenchContext *ctx) {
     for (loop_idx = 0; loop_idx < BENCH_LOOPS; loop_idx++) {
         /* Check for timeout */
         Timer_Stop();
-        if (Timer_GetElapsedMs() > BENCH_TIMEOUT_MS) return loop_idx;
+        if (Timer_GetElapsedMs() > BENCH_TIMEOUT_MS) {
+            g_BenchTimedOut = 1;
+            return loop_idx;
+        }
 
         /* Reset arrays */
         memset(ctx->pi, 0, sizeof(NUMBER) * ARR_SIZE);
@@ -211,7 +216,8 @@ static double RunOnePassStatic(int *loops_out) {
     ctx.pi = g_pi;
     ctx.term = g_term;
     ctx.temp = g_temp;
-    
+
+    g_BenchTimedOut = 0;
     Timer_Start();
     completed = DoBenchmarkWork(&ctx);
     Timer_Stop();
@@ -343,8 +349,9 @@ DWORD RunMultiCoreBenchmark(BENCH_CALLBACK callback) {
     if (!threads || !params || !thread_ids) return 0;
 
     Timer_Init();
+    g_BenchTimedOut = 0;
     Timer_Start();
-    
+
     /* Launch threads */
     for (i = 0; i < num_cores; i++) {
         params[i].thread_id = i;

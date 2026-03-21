@@ -29,9 +29,9 @@
 #define COMP_INPUT_SIZE 16384
 
 #ifdef _WIN32
-  #define COMP_LOOPS 5000
+  #define COMP_LOOPS 250
 #else
-  #define COMP_LOOPS 1
+  #define COMP_LOOPS 250
 #endif
 /* Simple hash for data generation */
 static void fill_random_data(unsigned char *buf, size_t size) {
@@ -151,10 +151,11 @@ double RunCompressionBenchmark(BENCH_CALLBACK callback) {
     }
     
     fill_random_data(in_buf, COMP_INPUT_SIZE);
-    
+
     Timer_Init();
+    g_BenchTimedOut = 0;
     Timer_Start();
-    
+
     for (i = 0; i < COMP_LOOPS; i++) {
         unsigned long c_size = lz_compress(in_buf, COMP_INPUT_SIZE, out_buf);
         (void)c_size;
@@ -164,7 +165,10 @@ double RunCompressionBenchmark(BENCH_CALLBACK callback) {
 
         /* Check for timeout */
         Timer_Stop();
-        if (Timer_GetElapsedMs() > BENCH_TIMEOUT_MS) break;
+        if (Timer_GetElapsedMs() > BENCH_TIMEOUT_MS) {
+            g_BenchTimedOut = 1;
+            break;
+        }
     }
     
     Timer_Stop();

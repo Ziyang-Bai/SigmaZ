@@ -108,10 +108,11 @@ double RunCryptoBenchmark(BENCH_CALLBACK callback) {
     
     /* Warmup */
     make_crc_table();
-    
+
     Timer_Init();
+    g_BenchTimedOut = 0;
     Timer_Start();
-    
+
     for (i = 0; i < loop_count; i++) {
         volatile unsigned long crc = crc32(buffer, (int)buf_size);
         (void)crc;
@@ -121,7 +122,10 @@ double RunCryptoBenchmark(BENCH_CALLBACK callback) {
 
         /* Check for timeout */
         Timer_Stop();
-        if (Timer_GetElapsedMs() > BENCH_TIMEOUT_MS) break;
+        if (Timer_GetElapsedMs() > BENCH_TIMEOUT_MS) {
+            g_BenchTimedOut = 1;
+            break;
+        }
     }
     
     Timer_Stop();

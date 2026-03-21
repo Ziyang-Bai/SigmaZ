@@ -18,12 +18,12 @@ For example, if your system's integer processing speed is 50 times faster than a
 
 | Test Item | Unit | 486 Ref Value (100 pts) | Weight |
 | :--- | :--- | :--- | :--- |
-| INT (Integer) | OPS (Operations Per Second) | 2000.0 | 20% |
-| FLOAT (Float) | Iter/ms (Iteration Per Millisecond) | 25.0 | 20% |
-| MEM OPS (Memory Operations) | MB/s (Megabytes Per Second) | 20.0 | 10% |
-| CRYPTO (Crypto) | Bytes/s | 500 KB/s | 15% |
-| COMPRESS (Compress) | Bytes/s | 300 KB/s | 15% |
-| MATRIX (Matrix) | Matrices/s | 0.3815 | 20% |
+| INT (Integer) | OPS (Operations Per Second) | 84.0 | 20% |
+| FLOAT (Float) | Iter/ms (Iteration Per Millisecond) | 170.0 | 20% |
+| MEM OPS (Memory Operations) | MB/s (Megabytes Per Second) | 24.0 | 10% |
+| CRYPTO (Crypto) | KB/s | 189.0 | 15% |
+| COMPRESS (Compress) | KB/s | 0.58 | 15% |
+| MATRIX (Matrix) | Matrices/s | 0.91 | 20% |
 
 ## Total Score Calculation
 
@@ -44,6 +44,6 @@ Total = exp(
 
 For early or older hardware (such as 386/486), SigmaZ introduces a timeout scoring mechanism:
 
-*   Integer, Float, Crypto, Compression, and Matrix tests stop automatically after **20 seconds**.
-*   The Memory test uses a fixed duration window (about **3 seconds**) to estimate stable bandwidth.
+*   Integer, Float, Crypto, Compression, and Matrix tests stop automatically after **60 seconds**.
+*   The Memory test uses a fixed duration window (**3 seconds**) to estimate stable bandwidth.
 *   The program will calculate the score proportionally based on the amount of computation completed.

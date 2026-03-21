@@ -28,12 +28,12 @@ static double g_ScoreCompress = 0.0; /* KB/sec */
 static double g_ScoreMatrix = 0.0; /* Matrices/sec */
 
 /* Reference Machine 486 DX2-66 Baseline Constants */
-#define REF_INT_OPS   2000.0   /* Approx Dhrystone loops/sec on 486 */
-#define REF_FLOAT_OPS 25.0     /* Approx Mandelbrot iters/ms on 486 */
-#define REF_MEM_BW    20.0     /* Approx 20 MB/s memcpy on 486 */
-#define REF_CRYPTO_BW 488.28   /* Approx 500 KB/s CRC32 on 486 */
-#define REF_COMPRESS_BW 292.96 /* Approx 300 KB/s LZ on 486 */
-#define REF_MATRIX_OPS 0.3815  /* Approx 0.38 Matrices(64x64)/sec on 486 */
+#define REF_INT_OPS   84.0       /* Approx int ops/sec on 486 */
+#define REF_FLOAT_OPS 170.0      /* Approx Mandelbrot iters/ms on 486 */
+#define REF_MEM_BW    24.0       /* Approx MB/s memcpy on 486 */
+#define REF_CRYPTO_BW 189.0      /* Approx KB/s CRC32 on 486 */
+#define REF_COMPRESS_BW 0.58     /* Approx KB/s LZ on 486 */
+#define REF_MATRIX_OPS 0.91      /* Approx Matrices/sec on 486 */
 
 /* Helper to Calculate Normalized Score (100 = 486 DX2-66) */
 static double CalcScore(double val, double ref) {
@@ -228,6 +228,50 @@ static void SetReport(HWND hwnd, int nID, const char* text) {
     SetDlgItemText(hwnd, nID, text);
 }
 
+/* Helper to build CPU pane report text */
+static void BuildCPUInfoReport(char* report_buf) {
+    char vendor_buf[16];
+    char brand_buf[65];
+    char mode_buf[32];
+    char features_buf[64];
+    char cores_buf[32];
+    char sig_buf[128];
+    char cache_buf[128];
+    char mobo_buf[128];
+    char mem_buf[128];
+    int num_cores;
+
+    GetCPUVendor(vendor_buf);
+    GetCPUBrandString(brand_buf);
+    GetPlatformMode(mode_buf);
+    GetCPUFeatures(features_buf);
+    GetCPUSignatureString(sig_buf);
+    GetCPUCacheString(cache_buf);
+    GetMotherboardInfo(mobo_buf);
+    GetMemoryInfo(mem_buf);
+    num_cores = GetCPUCount();
+
+#ifdef _WIN32
+    sprintf(cores_buf, "%d (Logical)", num_cores);
+#else
+    sprintf(cores_buf, "1 (Win16 Limit)");
+#endif
+
+    sprintf(report_buf,
+        "--- Processor Information ---\r\n\r\n"
+        "Vendor:  %s\r\n"
+        "Name:    %s\r\n"
+        "Mode:    %s\r\n"
+        "Tech:    %s\r\n"
+        "Cores:   %s\r\n"
+        "Signature: %s\r\n"
+        "Cache:   %s\r\n\r\n"
+        "--- Hardware Information ---\r\n\r\n"
+        "Motherboard: %s\r\n"
+        "Memory:      %s",
+        vendor_buf, brand_buf, mode_buf, features_buf, cores_buf, sig_buf, cache_buf, mobo_buf, mem_buf);
+}
+
 /* Run Int Single */
 void RunIntSingle(HWND hwnd) {
     char buf[1024];
@@ -244,6 +288,10 @@ void RunIntSingle(HWND hwnd) {
                  "Score: %lu OPS\r\n"
                  "Normalized: %.2f%% (vs 486)",
                  g_ScoreIntS, CalcScore((double)g_ScoreIntS, REF_INT_OPS));
+                 
+    if (g_BenchTimedOut) {
+        strcat(buf, "\r\n\r\n* Note: Test timed out. Score estimated by partial progress.");
+    }
     
     SetReport(hwnd, IDC_INT_REPORT, buf);
     SetDlgItemText(hwnd, g_ProgID, "Completed.");
@@ -254,14 +302,19 @@ void RunIntSingle(HWND hwnd) {
 void RunIntMulti(HWND hwnd) {
     char buf[1024];
     int cores = GetCPUCount();
+    int any_timeout = 0;
     
     g_ProgID = IDC_INT_PROG;
     SetDlgItemText(hwnd, g_ProgID, "Running Multi-Thread Integer...");
     SetButtonsEnable(hwnd, FALSE);
     
     /* Returns Normalized Score directly */
-    if (g_ScoreIntS == 0) g_ScoreIntS = RunSingleThreadBenchmark(NULL);
+    if (g_ScoreIntS == 0) {
+        g_ScoreIntS = RunSingleThreadBenchmark(NULL);
+        if (g_BenchTimedOut) any_timeout = 1;
+    }
     g_ScoreIntM = RunMultiCoreBenchmark(BenchCallbackBridge);
+    if (g_BenchTimedOut) any_timeout = 1;
     
     /* Efficiency */
     {
@@ -278,6 +331,10 @@ void RunIntMulti(HWND hwnd) {
                      "Normalized: %.2f%% (vs 486)",
                      cores, g_ScoreIntS, g_ScoreIntM, eff,
                      CalcScore((double)g_ScoreIntM, REF_INT_OPS));
+                     
+        if (any_timeout) {
+            strcat(buf, "\r\n\r\n* Note: Test timed out. Score estimated by partial progress.");
+        }
                      
         SetReport(hwnd, IDC_INT_REPORT, buf);
     }
@@ -302,6 +359,10 @@ void RunFloat(HWND hwnd) {
                  "Normalized: %.2f%% (vs 486)",
                  g_ScoreFloat, CalcScore((double)g_ScoreFloat, REF_FLOAT_OPS));
 
+    if (g_BenchTimedOut) {
+        strcat(buf, "\r\n\r\n* Note: Test timed out. Score estimated by partial progress.");
+    }
+
     SetReport(hwnd, IDC_FLOAT_REPORT, buf);
     SetDlgItemText(hwnd, g_ProgID, "Completed.");
     SetButtonsEnable(hwnd, TRUE);
@@ -322,6 +383,10 @@ void RunMem(HWND hwnd) {
                  "Bandwidth: %lu MB/s\r\n"
                  "Normalized: %.2f%% (vs 486)",
                  g_ScoreMem, CalcScore((double)g_ScoreMem, REF_MEM_BW));
+                 
+    if (g_BenchTimedOut) {
+        strcat(buf, "\r\n\r\n* Note: Test timed out. Score estimated by partial progress.");
+    }
     
     SetReport(hwnd, IDC_MEM_REPORT, buf);
     SetDlgItemText(hwnd, g_ProgID, "Completed.");
@@ -344,6 +409,10 @@ void RunCrypto(HWND hwnd) {
                  "Normalized: %.2f%% (vs 486)",
                  g_ScoreCrypto, CalcScore(g_ScoreCrypto, REF_CRYPTO_BW));
 
+    if (g_BenchTimedOut) {
+        strcat(buf, "\r\n\r\n* Note: Test timed out. Score estimated by partial progress.");
+    }
+
     SetReport(hwnd, IDC_CRY_REPORT, buf);
     SetDlgItemText(hwnd, g_ProgID, "Completed.");
     SetButtonsEnable(hwnd, TRUE);
@@ -365,6 +434,10 @@ void RunCompress(HWND hwnd) {
                  "Normalized: %.2f%% (vs 486)",
                  g_ScoreCompress, CalcScore(g_ScoreCompress, REF_COMPRESS_BW));
 
+    if (g_BenchTimedOut) {
+        strcat(buf, "\r\n\r\n* Note: Test timed out. Score estimated by partial progress.");
+    }
+
     SetReport(hwnd, IDC_CMP_REPORT, buf);
     SetDlgItemText(hwnd, g_ProgID, "Completed.");
     SetButtonsEnable(hwnd, TRUE);
@@ -385,7 +458,11 @@ void RunMatrix(HWND hwnd) {
                    "Throughput: %.2f Matrices/s\r\n"
                    "Normalized: %.2f%% (vs 486)",
                  g_ScoreMatrix, CalcScore(g_ScoreMatrix, REF_MATRIX_OPS));
-        SetReport(hwnd, IDC_MAT_REPORT, buf);
+
+    if (g_BenchTimedOut) {
+        strcat(buf, "\r\n\r\n* Note: Test timed out. Score estimated by partial progress.");
+    }
+    SetReport(hwnd, IDC_MAT_REPORT, buf);
     SetDlgItemText(hwnd, g_ProgID, "Completed.");
     SetButtonsEnable(hwnd, TRUE);
 }
@@ -394,9 +471,12 @@ void RunMatrix(HWND hwnd) {
 /* Run ALL */
 void RunAll(HWND hwnd) {
     static char buf[4096];
-    char line[128];
+    char cpu_info[1024];
+    char line[256];
     char msg[128];
     double n_int, n_float, n_mem, n_crypto, n_comp, n_mat, total;
+    int to_int = 0, to_float = 0, to_mem = 0, to_crypto = 0, to_comp = 0, to_mat = 0;
+    int any_timeout = 0;
 
     g_ProgID = IDC_ALL_PROG;
     SetButtonsEnable(hwnd, FALSE);
@@ -411,26 +491,32 @@ void RunAll(HWND hwnd) {
     } else {
          g_ScoreIntM = RunSingleThreadBenchmark(BenchCallbackBridge);
     }
+    if (g_BenchTimedOut) { to_int = 1; any_timeout = 1; }
     
     /* 2. Float */
     SetDlgItemText(hwnd, g_ProgID, "Test 2/6: Float FPU...");
     g_ScoreFloat = RunFloatBenchmark(BenchCallbackBridge);
+    if (g_BenchTimedOut) { to_float = 1; any_timeout = 1; }
     
     /* 3. Mem */
     SetDlgItemText(hwnd, g_ProgID, "Test 3/6: Memory Ops...");
     g_ScoreMem = RunMemoryBenchmark(BenchCallbackBridge);
+    if (g_BenchTimedOut) { to_mem = 1; any_timeout = 1; }
     
     /* 4. Crypto */
     SetDlgItemText(hwnd, g_ProgID, "Test 4/6: Crypto...");
     g_ScoreCrypto = RunCryptoBenchmark(BenchCallbackBridge);
+    if (g_BenchTimedOut) { to_crypto = 1; any_timeout = 1; }
 
     /* 5. Compress */
     SetDlgItemText(hwnd, g_ProgID, "Test 5/6: Compression...");
     g_ScoreCompress = RunCompressionBenchmark(BenchCallbackBridge);
+    if (g_BenchTimedOut) { to_comp = 1; any_timeout = 1; }
 
     /* 6. Matrix */
     SetDlgItemText(hwnd, g_ProgID, "Test 6/6: Matrix Math...");
     g_ScoreMatrix = RunMatrixBenchmark(BenchCallbackBridge);
+    if (g_BenchTimedOut) { to_mat = 1; any_timeout = 1; }
     
     /* Results */
     n_int = CalcScore((double)g_ScoreIntM, REF_INT_OPS);
@@ -444,60 +530,60 @@ void RunAll(HWND hwnd) {
 
     /* Generate Report */
     sprintf(buf, "--- SigmaZ Comprehensive Report ---\r\n\r\n");
+    BuildCPUInfoReport(cpu_info);
+    strcat(buf, cpu_info);
+    strcat(buf, "\r\n\r\n");
 
-    /* CPU Info Block */
-    {
-        char vendor_buf[16];
-        char brand_buf[65];
-        char mode_buf[32];
-        char features_buf[64];
-        static char cpu_block[512];
-        int num_cores = GetCPUCount();
-
-        GetCPUVendor(vendor_buf);
-        GetCPUBrandString(brand_buf);
-        GetPlatformMode(mode_buf);
-        GetCPUFeatures(features_buf);
-
-#ifdef _WIN32
-        sprintf(cpu_block,
-            "Processor Information:\r\n"
-            "  Name:  %s\r\n"
-            "  Tech:  %s\r\n"
-            "  Mode:  %s (%d Cores)\r\n\r\n",
-            brand_buf, features_buf, mode_buf, num_cores);
-#else
-        sprintf(cpu_block,
-            "Processor Information:\r\n"
-            "  Name:  %s\r\n"
-            "  Tech:  %s\r\n"
-            "  Mode:  %s (1 Core Limit)\r\n\r\n",
-            brand_buf, features_buf, mode_buf);
-#endif
-        strcat(buf, cpu_block);
+    if (to_int) {
+        sprintf(line, "*Integer:   %lu OPS  (Norm: %.1f) (Raw: %lu, Ref: %.1f)\r\n", g_ScoreIntM, n_int, g_ScoreIntM, (double)REF_INT_OPS);
+    } else {
+        sprintf(line, "Integer:   %lu OPS  (Norm: %.1f)\r\n", g_ScoreIntM, n_int);
     }
-
-    sprintf(line, "Integer:   %lu OPS  (Norm: %.1f)\r\n", g_ScoreIntM, n_int);
     strcat(buf, line);
-      sprintf(line, "Float:     %lu It/ms (Norm: %.1f)\r\n", g_ScoreFloat, n_float);
-      strcat(buf, line);
 
-      sprintf(line, "Mem Ops:   %lu MB/s (Norm: %.1f)\r\n", g_ScoreMem, n_mem);
-      strcat(buf, line);
+    if (to_float) {
+        sprintf(line, "*Float:     %lu It/ms (Norm: %.1f) (Raw: %lu, Ref: %.1f)\r\n", g_ScoreFloat, n_float, g_ScoreFloat, (double)REF_FLOAT_OPS);
+    } else {
+        sprintf(line, "Float:     %lu It/ms (Norm: %.1f)\r\n", g_ScoreFloat, n_float);
+    }
+    strcat(buf, line);
 
-      sprintf(line, "Crypto:    %.0f KB/s (Norm: %.1f)\r\n", g_ScoreCrypto, n_crypto);
-      strcat(buf, line);
+    if (to_mem) {
+        sprintf(line, "*Mem Ops:   %lu MB/s (Norm: %.1f) (Raw: %lu, Ref: %.1f)\r\n", g_ScoreMem, n_mem, g_ScoreMem, (double)REF_MEM_BW);
+    } else {
+        sprintf(line, "Mem Ops:   %lu MB/s (Norm: %.1f)\r\n", g_ScoreMem, n_mem);
+    }
+    strcat(buf, line);
 
-      sprintf(line, "Compress:  %.0f KB/s (Norm: %.1f)\r\n", g_ScoreCompress, n_comp);
-      strcat(buf, line);
+    if (to_crypto) {
+        sprintf(line, "*Crypto:    %.0f KB/s (Norm: %.1f) (Raw: %.0f, Ref: %.1f)\r\n", g_ScoreCrypto, n_crypto, g_ScoreCrypto, (double)REF_CRYPTO_BW);
+    } else {
+        sprintf(line, "Crypto:    %.0f KB/s (Norm: %.1f)\r\n", g_ScoreCrypto, n_crypto);
+    }
+    strcat(buf, line);
 
-      sprintf(line, "Matrix:    %.2f Mat/s (Norm: %.1f)\r\n", g_ScoreMatrix, n_mat);
+    if (to_comp) {
+        sprintf(line, "*Compress:  %.0f KB/s (Norm: %.1f) (Raw: %.0f, Ref: %.1f)\r\n", g_ScoreCompress, n_comp, g_ScoreCompress, (double)REF_COMPRESS_BW);
+    } else {
+        sprintf(line, "Compress:  %.0f KB/s (Norm: %.1f)\r\n", g_ScoreCompress, n_comp);
+    }
+    strcat(buf, line);
+
+    if (to_mat) {
+        sprintf(line, "*Matrix:    %.2f Mat/s (Norm: %.1f) (Raw: %.2f, Ref: %.4f)\r\n", g_ScoreMatrix, n_mat, g_ScoreMatrix, (double)REF_MATRIX_OPS);
+    } else {
+        sprintf(line, "Matrix:    %.2f Mat/s (Norm: %.1f)\r\n", g_ScoreMatrix, n_mat);
+    }
     strcat(buf, line);
 
       strcat(buf, "\r\n=============================\r\n");
       sprintf(line, "SIGMAZ SCORE: %.0f\r\n", total);
       strcat(buf, line);
     strcat(buf, "(Baseline: 486 DX2-66 = 100)");
+
+    if (any_timeout) {
+        strcat(buf, "\r\n\r\n* Note: One or more tests timed out.\r\n  Scores were estimated by partial progress.");
+    }
 
     SetReport(hwnd, IDC_ALL_REPORT, buf);
     
@@ -510,41 +596,14 @@ void RunAll(HWND hwnd) {
 
 /* Dialog Procedure to handle messages */
 BOOL CALLBACK MainDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    char vendor_buf[16];
-    char brand_buf[65];
-    char mode_buf[32];
-    char features_buf[64];
-    char cores_buf[32];
-    int num_cores;
-    
     switch (msg) {
     case WM_INITDIALOG:
         g_hDlg = hwnd;
-        
+
         /* --- CPU INFO TAB --- */
         {
             char report_buf[1024];
-            GetCPUVendor(vendor_buf);
-            GetCPUBrandString(brand_buf);
-            GetPlatformMode(mode_buf);
-            GetCPUFeatures(features_buf);
-            num_cores = GetCPUCount();
-            
-            #ifdef _WIN32
-            sprintf(cores_buf, "%d (Logical)", num_cores);
-            #else
-            sprintf(cores_buf, "1 (Win16 Limit)");
-            #endif
-            
-            sprintf(report_buf, 
-                "--- Processor Information ---\r\n\r\n"
-                "Vendor:  %s\r\n"
-                "Name:    %s\r\n"
-                "Mode:    %s\r\n"
-                "Tech:    %s\r\n"
-                "Cores:   %s",
-                vendor_buf, brand_buf, mode_buf, features_buf, cores_buf);
-            
+            BuildCPUInfoReport(report_buf);
             SetDlgItemText(hwnd, IDC_CPU_REPORT, report_buf);
         }
 
@@ -562,7 +621,7 @@ BOOL CALLBACK MainDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             "- Baseline: Intel 486 DX2-66 = 100\r\n"
             "- Total score: weighted geometric mean\r\n\r\n"
             "Timeout:\r\n"
-            "- Int/Float/Crypto/Compress/Matrix: 20s cap\r\n"
+              "- Int/Float/Crypto/Compress/Matrix: 60s cap\r\n"
             "- Mem Ops: fixed duration bandwidth window\r\n\r\n"
             "Open Source Project. Licensed under the GNU General Public License v3.0\r\n"
             "Copyright (c) Ziyang Bai 2026.");
