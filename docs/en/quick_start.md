@@ -15,9 +15,17 @@ After launching the program, you can perform a complete performance evaluation b
 1.  Select the **All** tab on the main interface.
 2.  Click the **Start All Tests** button.
 3.  The program will execute all benchmark tests sequentially.
+4.  Open the **Rpt** tab, choose a target directory from the directory list, enter a filename, and click **Save**.
 
 > **Note:** On lower-performance hardware (such as 386/486), the interface may appear "not responding" briefly during the test. This is because single-threaded calculations occupy CPU resources. Please wait patiently.
 
-## 3. Disclaimer
+## 3. Read Exported Reports
+
+SigmaZ provides a Python reader for `.szr` files:
+
+*   Strict verification: `python read_szr_report.py report.szr`
+*   Force parse arbitrary file: `python read_szr_report.py any.bin --force`
+
+## 4. Disclaimer
 
 This tool subjects your hardware (`CPU` and `Memory`) to significant stress. While protection mechanisms are built-in, use on unstable or overclocked systems is at your own risk.

@@ -13,6 +13,7 @@
 *   **性能评分**：分数以 1994 年的主流配置 **Intel 486 DX2-66** 为基准（100 分）。
 *   **全面测试**：包含整数 (Pi)、浮点 (Mandelbrot)、内存操作、加密 (CRC32)、压缩 (LZ77) 和矩阵运算。
 *   **超时策略**：整数/浮点/加密/压缩/矩阵测试默认 60 秒超时结算；内存操作使用固定 3 秒窗口测量带宽。
+*   **二进制报告导出**：完成 **All** 测试后，可在 **Rpt** 标签页选择目录并保存 `.szr` 报告（含校验和 + XOR 混淆）。
 
 有关测试项目和算法的详细信息，请查阅 [基准测试定义 (Benchmark Definitions)](docs/zh/benchmark_defs.md)。
 
@@ -24,6 +25,12 @@
     *   **`sigma32.exe`**: 32 位 Windows (95+)
     *   **`sigma16.exe`**: 16 位 Windows (3.1/3.11)
 3.  运行程序并点击 **Start All Tests**。
+4.  打开 **Rpt** 标签页，选择目录并输入文件名，点击 **Save** 导出 `.szr`。
+
+报告读取/校验脚本：
+
+*   严格模式：`python read_szr_report.py report.szr`
+*   强制模式（解析任意文件）：`python read_szr_report.py any.bin --force`
 
 更多详情请参阅 [快速开始 (Quick Start)](docs/zh/quick_start.md)。
 

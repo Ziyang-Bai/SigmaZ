@@ -19,6 +19,7 @@
 #define IDC_TAB_MAT     2007    /* New: Matrix */
 #define IDC_TAB_ALL     2008    /* New */
 #define IDC_TAB_ABOUT   2009    /* Moved */
+#define IDC_TAB_RPT     2010    /* New: Report Save */
 
 /* CPU Tab Controls (Labels need unique IDs for show/hide) */
 #define IDC_CPU_GRP     3000
@@ -71,3 +72,13 @@
 
 #define IDC_ABOUT_GRP   8000
 #define IDC_ABOUT_REPORT 8001
+
+/* Report Save Tab Controls */
+#define IDC_RPT_GRP     9000
+#define IDC_RPT_PATH    9001
+#define IDC_RPT_SAVE    9002
+#define IDC_RPT_STATUS  9003
+#define IDC_RPT_PATHLBL 9004
+#define IDC_RPT_DIRLIST 9005
+#define IDC_RPT_FILELBL 9006
+#define IDC_RPT_FILE    9007

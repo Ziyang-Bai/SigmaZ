@@ -13,6 +13,7 @@
 *   **Performance Metrics**: Scores are normalized against a baseline **Intel 486 DX2-66** (100 points).
 *   **Comprehensive Tests**: Integer (Pi), Float (Mandelbrot), Memory Ops, Crypto (CRC32), Compression (LZ77), and Matrix Math.
 *   **Timeout Strategy**: Integer/Float/Crypto/Compression/Matrix tests are capped at 60 seconds with partial scoring on timeout, while Memory Ops uses a fixed 3-second bandwidth window.
+*   **Binary Report Export**: After running **All** tests, use the **Rpt** tab to select a directory and save `.szr` report files with checksum + XOR obfuscation.
 
 For detailed test descriptions and algorithms, please check the [Benchmark Definitions](docs/en/benchmark_defs.md).
 
@@ -24,6 +25,12 @@ For detailed test descriptions and algorithms, please check the [Benchmark Defin
     *   **`sigma32.exe`**: 32-bit Windows (95+)
     *   **`sigma16.exe`**: 16-bit Windows (3.1/3.11)
 3.  Run the application and click **Start All Tests**.
+4.  Open the **Rpt** tab, choose a directory, enter file name, and click **Save** to export `.szr`.
+
+To read/verify report files:
+
+*   Strict mode: `python read_szr_report.py report.szr`
+*   Force mode (parse arbitrary files): `python read_szr_report.py any.bin --force`
 
 Check [Quick Start](docs/en/quick_start.md) for more details.
 

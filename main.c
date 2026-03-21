@@ -9,9 +9,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
+#include <direct.h>
 #include "resource.h"
 #include "detect.h"
 #include "bench.h"
+
+#ifndef MAX_PATH
+#define MAX_PATH 260
+#endif
 
 /* Global HWND for callback to update */
 static HWND g_hDlg = NULL;
@@ -26,6 +32,27 @@ static unsigned long g_ScoreMem = 0;
 static double g_ScoreCrypto = 0.0; /* KB/sec */
 static double g_ScoreCompress = 0.0; /* KB/sec */
 static double g_ScoreMatrix = 0.0; /* Matrices/sec */
+static unsigned long g_LastTotalScore = 0;
+static int g_ReportReady = 0;
+
+/* SigmaZ binary report (.SZR) */
+#pragma pack(push, 1)
+typedef struct {
+    char magic[4];
+    unsigned long version;
+    char cpu_name[32];
+    float raw_scores[6];
+    unsigned long total_score;
+    unsigned long timestamp;
+    char os_name[32];
+    unsigned long memory_mb;
+    unsigned long cores;
+    unsigned long checksum;
+} SZR_Report;
+#pragma pack(pop)
+
+#define SZR_VERSION 0x00010000UL
+#define SZR_XOR_KEY "SigmaZ95"
 
 /* Reference Machine 486 DX2-66 Baseline Constants */
 #define REF_INT_OPS   84.0       /* Approx int ops/sec on 486 */
@@ -90,6 +117,7 @@ static double CalcTotalScore(double s_int, double s_float, double s_mem, double 
 #define TAB_MATRIX  6
 #define TAB_ALL     7
 #define TAB_ABOUT   8
+#define TAB_REPORT  9
 
 static int g_CurrentTab = TAB_CPU;
 
@@ -160,6 +188,17 @@ void UpdateTabs(HWND hwnd) {
     s = (g_CurrentTab == TAB_ABOUT);
     ShowCtrl(hwnd, IDC_ABOUT_GRP, s);
     ShowCtrl(hwnd, IDC_ABOUT_REPORT, s);
+
+    /* Report Save Tab */
+    s = (g_CurrentTab == TAB_REPORT);
+    ShowCtrl(hwnd, IDC_RPT_GRP, s);
+    ShowCtrl(hwnd, IDC_RPT_PATHLBL, s);
+    ShowCtrl(hwnd, IDC_RPT_PATH, s);
+    ShowCtrl(hwnd, IDC_RPT_DIRLIST, s);
+    ShowCtrl(hwnd, IDC_RPT_FILELBL, s);
+    ShowCtrl(hwnd, IDC_RPT_FILE, s);
+    ShowCtrl(hwnd, IDC_RPT_SAVE, s);
+    ShowCtrl(hwnd, IDC_RPT_STATUS, s);
     
     /* Forces redraw of group boxes which might have artifacts */
     InvalidateRect(hwnd, NULL, TRUE);
@@ -221,11 +260,180 @@ void SetButtonsEnable(HWND hwnd, BOOL enable) {
     EnableWindow(GetDlgItem(hwnd, IDC_TAB_MAT), enable);
     EnableWindow(GetDlgItem(hwnd, IDC_TAB_ALL), enable);
     EnableWindow(GetDlgItem(hwnd, IDC_TAB_ABOUT), enable);
+    EnableWindow(GetDlgItem(hwnd, IDC_TAB_RPT), enable);
+
+    if (enable && g_ReportReady) {
+        EnableWindow(GetDlgItem(hwnd, IDC_RPT_SAVE), TRUE);
+    } else {
+        EnableWindow(GetDlgItem(hwnd, IDC_RPT_SAVE), FALSE);
+    }
 }
 
 /* Helper to set report text */
 static void SetReport(HWND hwnd, int nID, const char* text) {
     SetDlgItemText(hwnd, nID, text);
+}
+
+static void SZR_XorData(unsigned char *data, size_t len) {
+    const char *key = SZR_XOR_KEY;
+    size_t i;
+    for (i = 0; i < len; i++) {
+        data[i] ^= key[i % 8];
+    }
+}
+
+static unsigned long SZR_CalcChecksum(const SZR_Report *r) {
+    const unsigned char *ptr = (const unsigned char *)r;
+    unsigned long sum = 0x7A69676DL;
+    int i;
+    for (i = 0; i < (int)(sizeof(SZR_Report) - sizeof(unsigned long)); i++) {
+        sum = (sum << 1) + ptr[i];
+    }
+    return sum;
+}
+
+static unsigned long ParseLeadingUL(const char* text) {
+    unsigned long value = 0;
+    int seen_digit = 0;
+    while (*text) {
+        if (*text >= '0' && *text <= '9') {
+            seen_digit = 1;
+            value = (value * 10UL) + (unsigned long)(*text - '0');
+        } else if (seen_digit) {
+            break;
+        }
+        text++;
+    }
+    return value;
+}
+
+static int SaveSZRFile(const char* filename, unsigned long total_score) {
+    FILE *fp;
+    SZR_Report report;
+    SZR_Report encoded;
+    char cpu_name[65];
+    char mode_buf[32];
+    char mem_buf[128];
+
+    memset(&report, 0, sizeof(report));
+    report.magic[0] = 'S';
+    report.magic[1] = 'Z';
+    report.magic[2] = 'R';
+    report.magic[3] = 0x1A;
+    report.version = SZR_VERSION;
+
+    GetCPUBrandString(cpu_name);
+    strncpy(report.cpu_name, cpu_name, sizeof(report.cpu_name) - 1);
+
+    report.raw_scores[0] = (float)g_ScoreIntM;
+    report.raw_scores[1] = (float)g_ScoreFloat;
+    report.raw_scores[2] = (float)g_ScoreMem;
+    report.raw_scores[3] = (float)g_ScoreCrypto;
+    report.raw_scores[4] = (float)g_ScoreCompress;
+    report.raw_scores[5] = (float)g_ScoreMatrix;
+
+    report.total_score = total_score;
+    report.timestamp = (unsigned long)time(NULL);
+
+    GetPlatformMode(mode_buf);
+    strncpy(report.os_name, mode_buf, sizeof(report.os_name) - 1);
+
+    GetMemoryInfo(mem_buf);
+    report.memory_mb = ParseLeadingUL(mem_buf);
+    report.cores = (unsigned long)GetCPUCount();
+
+    report.checksum = SZR_CalcChecksum(&report);
+
+    encoded = report;
+    SZR_XorData((unsigned char *)&encoded, sizeof(encoded));
+
+    fp = fopen(filename, "wb");
+    if (!fp) return 0;
+
+    if (fwrite(&encoded, sizeof(encoded), 1, fp) != 1) {
+        fclose(fp);
+        return 0;
+    }
+
+    fclose(fp);
+    return 1;
+}
+
+static int HasExtension(const char* path) {
+    const char *p = path + strlen(path);
+    while (p > path) {
+        p--;
+        if (*p == '.') return 1;
+        if (*p == '\\' || *p == '/' || *p == ':') break;
+    }
+    return 0;
+}
+
+static void RefreshReportDirList(HWND hwnd) {
+    char spec[MAX_PATH];
+    strcpy(spec, "*.*");
+    DlgDirList(hwnd, spec, IDC_RPT_DIRLIST, IDC_RPT_PATH, DDL_DIRECTORY | DDL_DRIVES | DDL_EXCLUSIVE);
+}
+
+static void OnReportDirListSelect(HWND hwnd) {
+    char selected[MAX_PATH];
+    memset(selected, 0, sizeof(selected));
+
+    if (DlgDirSelectEx(hwnd, selected, sizeof(selected), IDC_RPT_DIRLIST)) {
+        if (strlen(selected) > 0) {
+            chdir(selected);
+            RefreshReportDirList(hwnd);
+        }
+    }
+}
+
+static void BuildReportOutputPath(HWND hwnd, char* out_path, size_t out_len) {
+    char dir[MAX_PATH];
+    char file[MAX_PATH];
+
+    memset(dir, 0, sizeof(dir));
+    memset(file, 0, sizeof(file));
+    GetDlgItemText(hwnd, IDC_RPT_PATH, dir, sizeof(dir));
+    GetDlgItemText(hwnd, IDC_RPT_FILE, file, sizeof(file));
+
+    if (strlen(file) == 0) {
+        strcpy(file, "SIGMAZ_REPORT.SZR");
+    }
+
+    strncpy(out_path, dir, out_len - 1);
+
+    if (strlen(out_path) > 0) {
+        char end = out_path[strlen(out_path) - 1];
+        if (end != '\\' && end != '/' && end != ':') {
+            strncat(out_path, "\\", out_len - strlen(out_path) - 1);
+        }
+    }
+
+    strncat(out_path, file, out_len - strlen(out_path) - 1);
+
+    if (!HasExtension(out_path)) {
+        strncat(out_path, ".szr", out_len - strlen(out_path) - 1);
+    }
+}
+
+static void SaveReportFromTab(HWND hwnd) {
+    char final_name[MAX_PATH + 64];
+
+    if (!g_ReportReady) {
+        SetDlgItemText(hwnd, IDC_RPT_STATUS, "Run All first. Report data is not ready.");
+        return;
+    }
+
+    memset(final_name, 0, sizeof(final_name));
+    BuildReportOutputPath(hwnd, final_name, sizeof(final_name));
+
+    if (SaveSZRFile(final_name, g_LastTotalScore)) {
+        char status[256];
+        sprintf(status, "Saved OK");
+        SetDlgItemText(hwnd, IDC_RPT_STATUS, status);
+    } else {
+        SetDlgItemText(hwnd, IDC_RPT_STATUS, "Save failed");
+    }
 }
 
 /* Helper to build CPU pane report text */
@@ -475,10 +683,12 @@ void RunAll(HWND hwnd) {
     char line[256];
     char msg[128];
     double n_int, n_float, n_mem, n_crypto, n_comp, n_mat, total;
+    unsigned long total_u32;
     int to_int = 0, to_float = 0, to_mem = 0, to_crypto = 0, to_comp = 0, to_mat = 0;
     int any_timeout = 0;
 
     g_ProgID = IDC_ALL_PROG;
+    g_ReportReady = 0;
     SetButtonsEnable(hwnd, FALSE);
     
     /* Clear Report */
@@ -527,6 +737,9 @@ void RunAll(HWND hwnd) {
     n_mat = CalcScore(g_ScoreMatrix, REF_MATRIX_OPS);
 
     total = CalcTotalScore(n_int, n_float, n_mem, n_crypto, n_comp, n_mat);
+    total_u32 = (unsigned long)(total + 0.5);
+    g_LastTotalScore = total_u32;
+    g_ReportReady = 1;
 
     /* Generate Report */
     sprintf(buf, "--- SigmaZ Comprehensive Report ---\r\n\r\n");
@@ -586,6 +799,7 @@ void RunAll(HWND hwnd) {
     }
 
     SetReport(hwnd, IDC_ALL_REPORT, buf);
+    SetDlgItemText(hwnd, IDC_RPT_STATUS, "Report ready. Switch to Rpt tab and click Save.");
     
     sprintf(msg, "SigmaZ Score: %.0f", total);
     MessageBox(hwnd, msg, "Benchmark Complete", MB_OK | MB_ICONINFORMATION);
@@ -641,6 +855,10 @@ BOOL CALLBACK MainDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         SetDlgItemText(hwnd, IDC_CMP_PROG,   "Ready");
         SetDlgItemText(hwnd, IDC_MAT_PROG,   "Ready");
         SetDlgItemText(hwnd, IDC_ALL_PROG,   "Ready");
+        SetDlgItemText(hwnd, IDC_RPT_FILE,   "SIGMAZ_REPORT.SZR");
+        SetDlgItemText(hwnd, IDC_RPT_STATUS, "Run All first");
+        RefreshReportDirList(hwnd);
+        EnableWindow(GetDlgItem(hwnd, IDC_RPT_SAVE), FALSE);
 
         /* Initialize Tab State */
         g_CurrentTab = TAB_CPU;
@@ -712,6 +930,10 @@ BOOL CALLBACK MainDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             g_CurrentTab = TAB_ABOUT; 
             UpdateTabs(hwnd);
             return TRUE;
+        case IDC_TAB_RPT:
+            g_CurrentTab = TAB_REPORT;
+            UpdateTabs(hwnd);
+            return TRUE;
 
         /* --- BENCHMARKS --- */
         case IDC_INT_BTN_S:
@@ -737,6 +959,19 @@ BOOL CALLBACK MainDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             return TRUE;
         case IDC_ALL_BTN:
             RunAll(hwnd);
+            return TRUE;
+        case IDC_RPT_SAVE:
+            SaveReportFromTab(hwnd);
+            return TRUE;
+        case IDC_RPT_DIRLIST:
+#ifdef _WIN32
+            if (HIWORD(wParam) == LBN_DBLCLK || HIWORD(wParam) == LBN_SELCHANGE)
+#else
+            if (HIWORD(lParam) == LBN_DBLCLK || HIWORD(lParam) == LBN_SELCHANGE)
+#endif
+            {
+                OnReportDirListSelect(hwnd);
+            }
             return TRUE;
 
         case IDC_EXIT_BTN:
