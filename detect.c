@@ -54,6 +54,62 @@ void GetPlatformMode(char* mode) {
 #endif
 }
 
+void GetSystemVersionString(char* ver_string) {
+    if (!ver_string) return;
+
+#ifdef _WIN32
+    {
+        OSVERSIONINFO osvi;
+        /* memset not always safely available without <string.h>, so we explicitly zero it */
+        osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+        osvi.dwMajorVersion = 0;
+        osvi.dwMinorVersion = 0;
+        osvi.dwBuildNumber = 0;
+        osvi.dwPlatformId = 0;
+        osvi.szCSDVersion[0] = '\0';
+        
+        if (GetVersionEx(&osvi)) {
+            sprintf(ver_string, "Windows %lu.%lu (Build %lu)",
+                    (unsigned long)osvi.dwMajorVersion, 
+                    (unsigned long)osvi.dwMinorVersion, 
+                    (unsigned long)osvi.dwBuildNumber);
+        } else {
+            DWORD dwVersion = GetVersion();
+            UINT uMajor = (UINT)(LOBYTE(LOWORD(dwVersion)));
+            UINT uMinor = (UINT)(HIBYTE(LOWORD(dwVersion)));
+            sprintf(ver_string, "Windows %u.%u", uMajor, uMinor);
+        }
+    }
+#else
+    {
+        /* Win16: GetVersion returns Windows version in low word, DOS version in high word */
+        DWORD dwVersion = GetVersion();
+        UINT uMajor = (UINT)(LOBYTE(LOWORD(dwVersion)));
+        UINT uMinor = (UINT)(HIBYTE(LOWORD(dwVersion)));
+        
+        WORD dos_ver = HIWORD(dwVersion);
+        /* Note: For DOS version, major is in HIBYTE, minor in LOBYTE. */
+        sprintf(ver_string, "Windows %u.%u (DOS %u.%u)",
+                uMajor, uMinor,
+                (UINT)HIBYTE(dos_ver), (UINT)LOBYTE(dos_ver));
+    }
+#endif
+}
+
+void GetProcessBitnessString(char* bitness) {
+    if (!bitness) return;
+
+#ifdef _WIN32
+    if (sizeof(void*) == 8) {
+        lstrcpy(bitness, "64-bit");
+    } else {
+        lstrcpy(bitness, "32-bit");
+    }
+#else
+    lstrcpy(bitness, "16-bit");
+#endif
+}
+
 void GetCPUFeatures(char* features) {
 #ifdef _WIN32
     DWORD edx_val = 0;
@@ -424,11 +480,44 @@ void GetMotherboardInfo(char* outBuf) {
 #endif
 }
 
+    #ifndef _WIN32
+    /*
+     * Win16 fallback memory query (INT 15h, AH=88h).
+     * Returns extended memory above 1MB in KB via AX.
+     */
+    static void GetWin16Memory(char* outBuf) {
+        unsigned int extended_mem_kb = 0;
+
+        if (!outBuf) return;
+
+        _asm {
+            mov ah, 88h
+            int 15h
+            jc mem_query_fail
+            xor ah, ah
+            mov extended_mem_kb, ax
+            jmp mem_query_done
+
+        mem_query_fail:
+            mov extended_mem_kb, 0
+
+        mem_query_done:
+        }
+
+        if (extended_mem_kb > 0) {
+            sprintf(outBuf, "%u MB", (extended_mem_kb / 1024U) + 1U);
+        } else {
+            lstrcpy(outBuf, "N/A");
+        }
+    }
+    #endif
+
 void GetMemoryInfo(char* outBuf) {
     if (!outBuf) return;
     lstrcpy(outBuf, "N/A");
 #ifdef _WIN32
     {
+            int gotMemory = 0;
         HMODULE hKernel32 = GetModuleHandle("kernel32.dll");
         GETSYSTEMFIRMWARETABLE pGetSystemFirmwareTable = NULL;
         if (hKernel32) {
@@ -443,7 +532,7 @@ void GetMemoryInfo(char* outBuf) {
                 if (smbiosData) {
                     BYTE* p;
                     BYTE* end;
-                    DWORD totalMem = 0;
+                    DWORD totalMemMB = 0;
                     DWORD speed = 0;
                     
                     pGetSystemFirmwareTable(signature, 0, smbiosData, size);
@@ -455,13 +544,23 @@ void GetMemoryInfo(char* outBuf) {
                         SMBIOSHeader* header = (SMBIOSHeader*)p;
                         if (header->Type == 17) {
                             WORD memSize = *((WORD*)((BYTE*)header + 12));
-                            WORD memSpeed = *((WORD*)((BYTE*)header + 21));
+                            WORD memSpeed = 0;
+
+                            if (header->Length > 21) {
+                                memSpeed = *((WORD*)((BYTE*)header + 21));
+                            }
                             
                             if (memSize > 0 && memSize != 0xFFFF) {
-                                if (memSize & 0x8000) {
-                                    totalMem += (memSize & 0x7FFF) * 1024;
+                                if (memSize == 0x7FFF && header->Length >= 0x20) {
+                                    DWORD extSizeMB = *((DWORD*)((BYTE*)header + 0x1C));
+                                    totalMemMB += extSizeMB;
+                                } else if (memSize & 0x8000) {
+                                    /* Bit15=1 means value is in KB. Convert to MB. */
+                                    DWORD kb = (DWORD)(memSize & 0x7FFF);
+                                    totalMemMB += (kb + 1023UL) / 1024UL;
                                 } else {
-                                    totalMem += memSize;
+                                    /* Bit15=0 means value is in MB. */
+                                    totalMemMB += (DWORD)memSize;
                                 }
                             }
                             if (memSpeed > 0 && memSpeed != 0xFFFF) {
@@ -475,14 +574,26 @@ void GetMemoryInfo(char* outBuf) {
                         p += 2;
                     }
                     
-                    if (totalMem > 0) {
-                         sprintf(outBuf, "%lu MB, %lu MHz", totalMem, speed);
+                    if (totalMemMB > 0) {
+                        sprintf(outBuf, "%lu MB, %lu MHz", totalMemMB, speed);
+                                            gotMemory = 1;
                     }
                     GlobalFree(smbiosData);
                 }
             }
         }
+
+                            if (!gotMemory) {
+                                MEMORYSTATUS ms;
+                                ms.dwLength = sizeof(MEMORYSTATUS);
+                                GlobalMemoryStatus(&ms);
+                                if (ms.dwTotalPhys > 0) {
+                                    sprintf(outBuf, "%lu MB", (unsigned long)(ms.dwTotalPhys / (1024UL * 1024UL)));
+                                }
+                            }
     }
+                    #else
+                        GetWin16Memory(outBuf);
 #endif
 }
 

@@ -14,6 +14,8 @@ void GetCPUVendor(char* vendor);
 
 /* Get Platform Mode string */
 void GetPlatformMode(char* mode);
+void GetSystemVersionString(char* ver_string);
+void GetProcessBitnessString(char* bitness);
 
 /* Get CPU Features (MMX, SSE, etc). Buffer must be at least 64 bytes. */
 void GetCPUFeatures(char* features);

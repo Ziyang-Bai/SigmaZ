@@ -82,3 +82,4 @@
 #define IDC_RPT_DIRLIST 9005
 #define IDC_RPT_FILELBL 9006
 #define IDC_RPT_FILE    9007
+#define IDC_RPT_HINT    9008

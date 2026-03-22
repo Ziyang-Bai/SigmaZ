@@ -32,6 +32,7 @@ static unsigned long g_ScoreMem = 0;
 static double g_ScoreCrypto = 0.0; /* KB/sec */
 static double g_ScoreCompress = 0.0; /* KB/sec */
 static double g_ScoreMatrix = 0.0; /* Matrices/sec */
+static unsigned long g_Timeouts = 0;
 static unsigned long g_LastTotalScore = 0;
 static int g_ReportReady = 0;
 
@@ -40,18 +41,27 @@ static int g_ReportReady = 0;
 typedef struct {
     char magic[4];
     unsigned long version;
-    char cpu_name[32];
+    char cpu_vendor[16];
+    char cpu_name[64];
+    char os_mode[32];
+    char sys_version[64];
+    char cpu_features[64];
+    unsigned long cores;
+    char cpu_signature[64];
+    char cpu_cache[64];
+    char motherboard[128];
+    char memory_info[128];
+    char bios_info[128];
     float raw_scores[6];
+    float norm_scores[6];
+    unsigned long timeouts;
     unsigned long total_score;
     unsigned long timestamp;
-    char os_name[32];
-    unsigned long memory_mb;
-    unsigned long cores;
     unsigned long checksum;
 } SZR_Report;
 #pragma pack(pop)
 
-#define SZR_VERSION 0x00010000UL
+#define SZR_VERSION 0x00020001UL
 #define SZR_XOR_KEY "SigmaZ95"
 
 /* Reference Machine 486 DX2-66 Baseline Constants */
@@ -194,6 +204,7 @@ void UpdateTabs(HWND hwnd) {
     ShowCtrl(hwnd, IDC_RPT_GRP, s);
     ShowCtrl(hwnd, IDC_RPT_PATHLBL, s);
     ShowCtrl(hwnd, IDC_RPT_PATH, s);
+    ShowCtrl(hwnd, IDC_RPT_HINT, s);
     ShowCtrl(hwnd, IDC_RPT_DIRLIST, s);
     ShowCtrl(hwnd, IDC_RPT_FILELBL, s);
     ShowCtrl(hwnd, IDC_RPT_FILE, s);
@@ -311,9 +322,9 @@ static int SaveSZRFile(const char* filename, unsigned long total_score) {
     FILE *fp;
     SZR_Report report;
     SZR_Report encoded;
-    char cpu_name[65];
+    char temp_buf[128];
     char mode_buf[32];
-    char mem_buf[128];
+    char bitness_buf[16];
 
     memset(&report, 0, sizeof(report));
     report.magic[0] = 'S';
@@ -322,8 +333,39 @@ static int SaveSZRFile(const char* filename, unsigned long total_score) {
     report.magic[3] = 0x1A;
     report.version = SZR_VERSION;
 
-    GetCPUBrandString(cpu_name);
-    strncpy(report.cpu_name, cpu_name, sizeof(report.cpu_name) - 1);
+    GetCPUVendor(temp_buf);
+    strncpy(report.cpu_vendor, temp_buf, sizeof(report.cpu_vendor) - 1);
+    
+    GetCPUBrandString(temp_buf);
+    strncpy(report.cpu_name, temp_buf, sizeof(report.cpu_name) - 1);
+    
+    GetPlatformMode(mode_buf);
+    GetProcessBitnessString(bitness_buf);
+    sprintf(temp_buf, "%s %s", mode_buf, bitness_buf);
+    strncpy(report.os_mode, temp_buf, sizeof(report.os_mode) - 1);
+
+    GetSystemVersionString(temp_buf);
+    strncpy(report.sys_version, temp_buf, sizeof(report.sys_version) - 1);
+
+    GetCPUFeatures(temp_buf);
+    strncpy(report.cpu_features, temp_buf, sizeof(report.cpu_features) - 1);
+
+    report.cores = (unsigned long)GetCPUCount();
+    
+    GetCPUSignatureString(temp_buf);
+    strncpy(report.cpu_signature, temp_buf, sizeof(report.cpu_signature) - 1);
+    
+    GetCPUCacheString(temp_buf);
+    strncpy(report.cpu_cache, temp_buf, sizeof(report.cpu_cache) - 1);
+    
+    GetMotherboardInfo(temp_buf);
+    strncpy(report.motherboard, temp_buf, sizeof(report.motherboard) - 1);
+    
+    GetMemoryInfo(temp_buf);
+    strncpy(report.memory_info, temp_buf, sizeof(report.memory_info) - 1);
+    
+    GetBIOSInfo(temp_buf);
+    strncpy(report.bios_info, temp_buf, sizeof(report.bios_info) - 1);
 
     report.raw_scores[0] = (float)g_ScoreIntM;
     report.raw_scores[1] = (float)g_ScoreFloat;
@@ -332,15 +374,17 @@ static int SaveSZRFile(const char* filename, unsigned long total_score) {
     report.raw_scores[4] = (float)g_ScoreCompress;
     report.raw_scores[5] = (float)g_ScoreMatrix;
 
+    report.norm_scores[0] = (float)CalcScore((double)g_ScoreIntM, REF_INT_OPS);
+    report.norm_scores[1] = (float)CalcScore((double)g_ScoreFloat, REF_FLOAT_OPS);
+    report.norm_scores[2] = (float)CalcScore((double)g_ScoreMem, REF_MEM_BW);
+    report.norm_scores[3] = (float)CalcScore((double)g_ScoreCrypto, REF_CRYPTO_BW);
+    report.norm_scores[4] = (float)CalcScore((double)g_ScoreCompress, REF_COMPRESS_BW);
+    report.norm_scores[5] = (float)CalcScore((double)g_ScoreMatrix, REF_MATRIX_OPS);
+
+    report.timeouts = g_Timeouts;
+    
     report.total_score = total_score;
     report.timestamp = (unsigned long)time(NULL);
-
-    GetPlatformMode(mode_buf);
-    strncpy(report.os_name, mode_buf, sizeof(report.os_name) - 1);
-
-    GetMemoryInfo(mem_buf);
-    report.memory_mb = ParseLeadingUL(mem_buf);
-    report.cores = (unsigned long)GetCPUCount();
 
     report.checksum = SZR_CalcChecksum(&report);
 
@@ -441,22 +485,28 @@ static void BuildCPUInfoReport(char* report_buf) {
     char vendor_buf[16];
     char brand_buf[65];
     char mode_buf[32];
+    char bitness_buf[16];
+    char sys_buf[64];
     char features_buf[64];
     char cores_buf[32];
     char sig_buf[128];
     char cache_buf[128];
     char mobo_buf[128];
     char mem_buf[128];
+    char bios_buf[128];
     int num_cores;
 
     GetCPUVendor(vendor_buf);
     GetCPUBrandString(brand_buf);
     GetPlatformMode(mode_buf);
+    GetProcessBitnessString(bitness_buf);
+    GetSystemVersionString(sys_buf);
     GetCPUFeatures(features_buf);
     GetCPUSignatureString(sig_buf);
     GetCPUCacheString(cache_buf);
     GetMotherboardInfo(mobo_buf);
     GetMemoryInfo(mem_buf);
+    GetBIOSInfo(bios_buf);
     num_cores = GetCPUCount();
 
 #ifdef _WIN32
@@ -470,14 +520,17 @@ static void BuildCPUInfoReport(char* report_buf) {
         "Vendor:  %s\r\n"
         "Name:    %s\r\n"
         "Mode:    %s\r\n"
+        "Process Bitness: %s\r\n"
         "Tech:    %s\r\n"
         "Cores:   %s\r\n"
         "Signature: %s\r\n"
         "Cache:   %s\r\n\r\n"
-        "--- Hardware Information ---\r\n\r\n"
+        "--- System & Hardware ---\r\n\r\n"
+        "OS Version:  %s\r\n"
         "Motherboard: %s\r\n"
-        "Memory:      %s",
-        vendor_buf, brand_buf, mode_buf, features_buf, cores_buf, sig_buf, cache_buf, mobo_buf, mem_buf);
+        "Memory:      %s\r\n"
+        "BIOS:        %s",
+        vendor_buf, brand_buf, mode_buf, bitness_buf, features_buf, cores_buf, sig_buf, cache_buf, sys_buf, mobo_buf, mem_buf, bios_buf);
 }
 
 /* Run Int Single */
@@ -693,7 +746,8 @@ void RunAll(HWND hwnd) {
     
     /* Clear Report */
     SetReport(hwnd, IDC_ALL_REPORT, "Running Comprehensive Benchmark Suite...\r\nPlease Wait.");
-    
+    g_Timeouts = 0;
+
     /* 1. Int */
     SetDlgItemText(hwnd, g_ProgID, "Test 1/6: Integer...");
     if (GetCPUCount() > 1) {
@@ -701,34 +755,32 @@ void RunAll(HWND hwnd) {
     } else {
          g_ScoreIntM = RunSingleThreadBenchmark(BenchCallbackBridge);
     }
-    if (g_BenchTimedOut) { to_int = 1; any_timeout = 1; }
-    
+    if (g_BenchTimedOut) { to_int = 1; any_timeout = 1; g_Timeouts |= 1; }
+
     /* 2. Float */
     SetDlgItemText(hwnd, g_ProgID, "Test 2/6: Float FPU...");
     g_ScoreFloat = RunFloatBenchmark(BenchCallbackBridge);
-    if (g_BenchTimedOut) { to_float = 1; any_timeout = 1; }
-    
+    if (g_BenchTimedOut) { to_float = 1; any_timeout = 1; g_Timeouts |= 2; }
+
     /* 3. Mem */
     SetDlgItemText(hwnd, g_ProgID, "Test 3/6: Memory Ops...");
     g_ScoreMem = RunMemoryBenchmark(BenchCallbackBridge);
-    if (g_BenchTimedOut) { to_mem = 1; any_timeout = 1; }
-    
+    if (g_BenchTimedOut) { to_mem = 1; any_timeout = 1; g_Timeouts |= 4; }
+
     /* 4. Crypto */
     SetDlgItemText(hwnd, g_ProgID, "Test 4/6: Crypto...");
     g_ScoreCrypto = RunCryptoBenchmark(BenchCallbackBridge);
-    if (g_BenchTimedOut) { to_crypto = 1; any_timeout = 1; }
+    if (g_BenchTimedOut) { to_crypto = 1; any_timeout = 1; g_Timeouts |= 8; }
 
     /* 5. Compress */
     SetDlgItemText(hwnd, g_ProgID, "Test 5/6: Compression...");
     g_ScoreCompress = RunCompressionBenchmark(BenchCallbackBridge);
-    if (g_BenchTimedOut) { to_comp = 1; any_timeout = 1; }
+    if (g_BenchTimedOut) { to_comp = 1; any_timeout = 1; g_Timeouts |= 16; }
 
     /* 6. Matrix */
     SetDlgItemText(hwnd, g_ProgID, "Test 6/6: Matrix Math...");
     g_ScoreMatrix = RunMatrixBenchmark(BenchCallbackBridge);
-    if (g_BenchTimedOut) { to_mat = 1; any_timeout = 1; }
-    
-    /* Results */
+    if (g_BenchTimedOut) { to_mat = 1; any_timeout = 1; g_Timeouts |= 32; }
     n_int = CalcScore((double)g_ScoreIntM, REF_INT_OPS);
     n_float = CalcScore((double)g_ScoreFloat, REF_FLOAT_OPS);
     n_mem = CalcScore((double)g_ScoreMem, REF_MEM_BW);
@@ -822,8 +874,8 @@ BOOL CALLBACK MainDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         }
 
         /* --- ABOUT TAB --- */
-        SetDlgItemText(hwnd, IDC_ABOUT_REPORT, 
-            "SigmaZ Benchmark v1.0\r\n\r\n"
+        SetDlgItemText(hwnd, IDC_ABOUT_REPORT,
+            "SigmaZ Benchmark v1.1\r\n\r\n"
             "Workloads:\r\n"
             "- Integer: Machin-Pi (Single/Multi)\r\n"
             "- Float: Mandelbrot Set (Double Precision)\r\n"
