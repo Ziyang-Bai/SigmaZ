@@ -2,10 +2,11 @@
 
 [Documentation (English)](docs/en/index.md) | [中文文档 (Chinese)](docs/zh/index.md)
 
-**SigmaZ** 是一款跨时代的 Windows个人电脑通用微处理器测试 程序，支持从 **Windows 3.1** 到 **Windows 11** 的 Windows 系统。包含 Win16、Win32 和 Win64 三个原生版本，可运行于 486 到现代多核处理器等不同硬件平台。
+**SigmaZ** 是一款跨时代的 Windows个人电脑通用微处理器测试 程序，支持从 **Windows 3.1** 到 **Windows 11** 的 Windows 系统。包含 Win16、Win32 和 Win64 三个原生版本，可运行于 486 到现代多核处理器等不同硬件平台。如果愿意，你还可以上传跑分报告到[SigmaZ 天梯榜](https://sigmaz.retrolab.top)与全球玩家分享你的分数。
 
 ![SigmaZ On Windows 95](assets/win95.png)
-![SigmaZ 64+32](assets/64+32.png)
+![SigmaZ 31](assets/31.png)
+![SigmaZ Online](assets/board.png)(https://sigmaz.retrolab.top)
 
 ## 核心功能
 
@@ -51,6 +52,7 @@ SigmaZ 需要 **Open Watcom v2** (用于 Win16/32) 和 **Visual Studio / MSVC** 
 *   [系统要求与快速开始](docs/zh/quick_start.md)
 *   [基准测试定义与公式](docs/zh/benchmark_defs.md)
 *   [评分系统说明](docs/zh/scoring.md)
+*   [SZR 文件说明](docs/zh/szr_file.md)
 *   [技术细节](docs/zh/technical.md)
 *   [疑难解答](docs/zh/troubleshooting.md)
 

@@ -8,7 +8,12 @@ Developing 16-bit Windows (Win16) applications requires handling complex memory 
 
 ## Compilation Toolchain
 
-SigmaZ's build relies on the **Open Watcom v2** compiler. Through its powerful cross-compilation capabilities, we can generate 16-bit binaries for Windows 3.1 and 32-bit/64-bit binaries for modern Windows simultaneously in a modern build environment. This prevents switching back and forth between several virtual machines. Let's thank them!
+SigmaZ uses a mixed toolchain:
+
+- **Open Watcom v2** for Win16 and Win32 builds (`build.bat`)
+- **MSVC (Visual Studio Developer Command Prompt)** for Win64 builds (`build_x64.bat`)
+
+This keeps legacy targets (Windows 3.1/95 era) and modern x64 targets maintainable in one repository.
 
 ## Source Code Compilation
 

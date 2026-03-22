@@ -16,5 +16,6 @@ The Generic Microsoft(R) Windows(R) PC Performance Evaluation Utility.
 *   [快速开始](quick_start.html)
 *   [测试项目详解](benchmark_defs.html)
 *   [分数说明](scoring.html)
+*   [SZR 文件说明](szr_file.html)
 *   [技术细节](technical.html)
 *   [故障排除](troubleshooting.html)

@@ -14,5 +14,6 @@ The Generic PC Processor Performance Evaluation Utility.
 *   [Quick Start](quick_start.html)
 *   [Benchmark Definitions](benchmark_defs.html)
 *   [Scoring Explanation](scoring.html)
+*   [SZR File Format](szr_file.html)
 *   [Technical Details](technical.html)
 *   [Troubleshooting](troubleshooting.html)

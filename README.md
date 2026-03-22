@@ -5,7 +5,8 @@
 **SigmaZ** is a benchmarking utility for Windows systems, supporting environments from **Windows 3.1** to **Windows 11**. It compiles to native Win16, Win32 and Win64 executables to run on hardware ranging from 486 PCs to modern multi-core workstations.
 
 ![SigmaZ On Windows 95](assets/win95.png)
-![SigmaZ 64+32](assets/64+32.png)
+![SigmaZ 31](assets/31.png)
+[![SigmaZ Online](assets/board.png)](https://sigmaz.retrolab.top)
 
 ## Key Features
 
@@ -51,6 +52,7 @@ Detailed documentation is available in the `docs/` folder or the compiled CHM he
 *   [System Requirements & Quick Start](docs/en/quick_start.md)
 *   [Benchmark Definitions & Formulas](docs/en/benchmark_defs.md)
 *   [Scoring System](docs/en/scoring.md)
+*   [SZR File Format](docs/en/szr_file.md)
 *   [Technical Details](docs/en/technical.md)
 *   [Troubleshooting](docs/en/troubleshooting.md)
 
@@ -66,11 +68,8 @@ This project is open source. See [LICENSE](LICENSE) for details.
 *   `detect.c`: CPU detection routines (CPUID, etc.).
 *   `timer.c`: High-resolution timing wrapper (QueryPerformanceCounter / GetTickCount).
 *   `sigmaz.rc`: Resource script defining the GUI layout.
-*   `help/`: Source files for the CHM help documentation.
-
-## License
-
-This project is open-source. See the [LICENSE](LICENSE) file for details.
+*   `docs/`: Source Markdown documentation (Chinese/English).
+*   `build/`: Generated binaries and compiled CHM help files.
 
 ## Disclaimer
 

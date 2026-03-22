@@ -17,6 +17,8 @@ After launching the program, you can perform a complete performance evaluation b
 3.  The program will execute all benchmark tests sequentially.
 4.  Open the **Rpt** tab, choose a target directory from the directory list, enter a filename, and click **Save**.
 
+The **Info** tab displays detected system and hardware information.
+
 > **Note:** On lower-performance hardware (such as 386/486), the interface may appear "not responding" briefly during the test. This is because single-threaded calculations occupy CPU resources. Please wait patiently.
 
 ## 3. Read Exported Reports

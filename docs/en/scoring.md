@@ -40,6 +40,8 @@ Total = exp(
 )
 ```
 
+Implementation detail: before applying `ln()`, SigmaZ clamps each normalized sub-score to a minimum of `1.0` to avoid invalid `ln(0)` cases.
+
 ## Timeout Scoring
 
 For early or older hardware (such as 386/486), SigmaZ introduces a timeout scoring mechanism:
