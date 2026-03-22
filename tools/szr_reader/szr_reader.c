@@ -23,19 +23,28 @@
 #define IDC_EXIT_BTN    1004
 #define IDC_OUTPUT_EDIT 1005
 
-#define SZR_SIZE 116
+#define SZR_SIZE 828
 #define SZR_SALT 0x7A69676DUL
 
 #define OFF_MAGIC      0
 #define OFF_VERSION    4
-#define OFF_CPU_NAME   8
-#define OFF_SCORES     40
-#define OFF_TOTAL      64
-#define OFF_TIMESTAMP  68
-#define OFF_OS_NAME    72
-#define OFF_MEMORY_MB  104
-#define OFF_CORES      108
-#define OFF_CHECKSUM   112
+#define OFF_VENDOR     8
+#define OFF_CPU_NAME   24
+#define OFF_OS_MODE    88
+#define OFF_SYS_VER    120
+#define OFF_FEATURES   184
+#define OFF_CORES      248
+#define OFF_SIGNATURE  252
+#define OFF_CACHE      316
+#define OFF_MOBO       380
+#define OFF_MEMORY     508
+#define OFF_BIOS       636
+#define OFF_RAW_SCORE  764
+#define OFF_NORM_SCORE 788
+#define OFF_TIMEOUTS   812
+#define OFF_TOTAL      816
+#define OFF_TIMESTAMP  820
+#define OFF_CHECKSUM   824
 
 static const char g_key[8] = { 'S', 'i', 'g', 'm', 'a', 'Z', '9', '5' };
 
@@ -94,23 +103,32 @@ static void append_line(char* out, unsigned int cap, const char* text) {
 
 static int parse_szr_to_text(const char* path, int force, char* out, unsigned int out_cap) {
     FILE* fp;
-    unsigned char raw[512];
+    unsigned char raw[1024];
     unsigned char data[SZR_SIZE];
     unsigned int read_n;
 
     unsigned long version;
-    float scores[6];
+    char cpu_vendor[17];
+    char cpu_name[65];
+    char os_mode[33];
+    char sys_version[65];
+    char cpu_features[65];
+    unsigned long cores;
+    char cpu_signature[65];
+    char cpu_cache[65];
+    char motherboard[129];
+    char memory_info[129];
+    char bios_info[129];
+    float raw_scores[6];
+    float norm_scores[6];
+    unsigned long timeouts;
     unsigned long total_score;
     unsigned long timestamp;
-    unsigned long memory_mb;
-    unsigned long cores;
     unsigned long file_checksum;
     unsigned long calc;
     int magic_ok;
     int checksum_ok;
 
-    char cpu_name[33];
-    char os_name[33];
     char line[256];
     time_t t;
     struct tm* tmv;
@@ -137,7 +155,8 @@ static int parse_szr_to_text(const char* path, int force, char* out, unsigned in
     if (read_n >= SZR_SIZE) {
         memcpy(data, raw, SZR_SIZE);
         if (force && read_n > SZR_SIZE) {
-            append_line(out, out_cap, "[WARN] Force mode: file too long, using first 116 bytes");
+            sprintf(line, "[WARN] Force mode: file too long, using first %u bytes", (unsigned int)SZR_SIZE);
+            append_line(out, out_cap, line);
         }
     } else {
         memcpy(data, raw, read_n);
@@ -157,20 +176,35 @@ static int parse_szr_to_text(const char* path, int force, char* out, unsigned in
     }
 
     version = read_u32_le(data + OFF_VERSION);
-    read_cstr(cpu_name, sizeof(cpu_name), data + OFF_CPU_NAME, 32);
+    read_cstr(cpu_vendor, sizeof(cpu_vendor), data + OFF_VENDOR, 16);
+    read_cstr(cpu_name, sizeof(cpu_name), data + OFF_CPU_NAME, 64);
+    read_cstr(os_mode, sizeof(os_mode), data + OFF_OS_MODE, 32);
+    read_cstr(sys_version, sizeof(sys_version), data + OFF_SYS_VER, 64);
+    read_cstr(cpu_features, sizeof(cpu_features), data + OFF_FEATURES, 64);
+    cores = read_u32_le(data + OFF_CORES);
+    read_cstr(cpu_signature, sizeof(cpu_signature), data + OFF_SIGNATURE, 64);
+    read_cstr(cpu_cache, sizeof(cpu_cache), data + OFF_CACHE, 64);
+    read_cstr(motherboard, sizeof(motherboard), data + OFF_MOBO, 128);
+    read_cstr(memory_info, sizeof(memory_info), data + OFF_MEMORY, 128);
+    read_cstr(bios_info, sizeof(bios_info), data + OFF_BIOS, 128);
 
-    scores[0] = read_f32_le(data + OFF_SCORES + 0);
-    scores[1] = read_f32_le(data + OFF_SCORES + 4);
-    scores[2] = read_f32_le(data + OFF_SCORES + 8);
-    scores[3] = read_f32_le(data + OFF_SCORES + 12);
-    scores[4] = read_f32_le(data + OFF_SCORES + 16);
-    scores[5] = read_f32_le(data + OFF_SCORES + 20);
+    raw_scores[0] = read_f32_le(data + OFF_RAW_SCORE + 0);
+    raw_scores[1] = read_f32_le(data + OFF_RAW_SCORE + 4);
+    raw_scores[2] = read_f32_le(data + OFF_RAW_SCORE + 8);
+    raw_scores[3] = read_f32_le(data + OFF_RAW_SCORE + 12);
+    raw_scores[4] = read_f32_le(data + OFF_RAW_SCORE + 16);
+    raw_scores[5] = read_f32_le(data + OFF_RAW_SCORE + 20);
 
+    norm_scores[0] = read_f32_le(data + OFF_NORM_SCORE + 0);
+    norm_scores[1] = read_f32_le(data + OFF_NORM_SCORE + 4);
+    norm_scores[2] = read_f32_le(data + OFF_NORM_SCORE + 8);
+    norm_scores[3] = read_f32_le(data + OFF_NORM_SCORE + 12);
+    norm_scores[4] = read_f32_le(data + OFF_NORM_SCORE + 16);
+    norm_scores[5] = read_f32_le(data + OFF_NORM_SCORE + 20);
+
+    timeouts = read_u32_le(data + OFF_TIMEOUTS);
     total_score = read_u32_le(data + OFF_TOTAL);
     timestamp = read_u32_le(data + OFF_TIMESTAMP);
-    read_cstr(os_name, sizeof(os_name), data + OFF_OS_NAME, 32);
-    memory_mb = read_u32_le(data + OFF_MEMORY_MB);
-    cores = read_u32_le(data + OFF_CORES);
     file_checksum = read_u32_le(data + OFF_CHECKSUM);
 
     calc = calc_checksum(data);
@@ -188,17 +222,6 @@ static int parse_szr_to_text(const char* path, int force, char* out, unsigned in
         append_line(out, out_cap, "SigmaZ Report Parsed (FORCED)");
     }
 
-    sprintf(line, "Version   : 0x%08lX", version);
-    append_line(out, out_cap, line);
-    sprintf(line, "CPU       : %s", cpu_name);
-    append_line(out, out_cap, line);
-    sprintf(line, "OS Mode   : %s", os_name);
-    append_line(out, out_cap, line);
-    sprintf(line, "Cores     : %lu", cores);
-    append_line(out, out_cap, line);
-    sprintf(line, "Memory MB : %lu", memory_mb);
-    append_line(out, out_cap, line);
-
     t = (time_t)timestamp;
     tmv = localtime(&t);
     if (tmv && strftime(tbuf, sizeof(tbuf), "%Y-%m-%d %H:%M:%S", tmv) > 0) {
@@ -208,16 +231,59 @@ static int parse_szr_to_text(const char* path, int force, char* out, unsigned in
     }
     append_line(out, out_cap, line);
 
-    sprintf(line, "Total     : %lu", total_score);
+    sprintf(line, "Version   : 0x%08lX", version);
     append_line(out, out_cap, line);
+    append_line(out, out_cap, "");
 
-    append_line(out, out_cap, "Raw Scores:");
-    sprintf(line, "  - Integer : %.4f", scores[0]); append_line(out, out_cap, line);
-    sprintf(line, "  - Float   : %.4f", scores[1]); append_line(out, out_cap, line);
-    sprintf(line, "  - MemOps  : %.4f", scores[2]); append_line(out, out_cap, line);
-    sprintf(line, "  - Crypto  : %.4f", scores[3]); append_line(out, out_cap, line);
-    sprintf(line, "  - Compress: %.4f", scores[4]); append_line(out, out_cap, line);
-    sprintf(line, "  - Matrix  : %.4f", scores[5]); append_line(out, out_cap, line);
+    append_line(out, out_cap, "--- Processor Information ---");
+    sprintf(line, "Vendor    : %s", cpu_vendor);
+    append_line(out, out_cap, line);
+    sprintf(line, "Name      : %s", cpu_name);
+    append_line(out, out_cap, line);
+    sprintf(line, "Mode/Bitness: %s", os_mode);
+    append_line(out, out_cap, line);
+    sprintf(line, "OS Version: %s", sys_version);
+    append_line(out, out_cap, line);
+    sprintf(line, "Tech      : %s", cpu_features);
+    append_line(out, out_cap, line);
+    sprintf(line, "Cores     : %lu", cores);
+    append_line(out, out_cap, line);
+    sprintf(line, "Signature : %s", cpu_signature);
+    append_line(out, out_cap, line);
+    sprintf(line, "Cache     : %s", cpu_cache);
+    append_line(out, out_cap, line);
+    append_line(out, out_cap, "");
+
+    append_line(out, out_cap, "--- Hardware Information ---");
+    sprintf(line, "Motherboard: %s", motherboard);
+    append_line(out, out_cap, line);
+    sprintf(line, "Memory    : %s", memory_info);
+    append_line(out, out_cap, line);
+    sprintf(line, "BIOS      : %s", bios_info);
+    append_line(out, out_cap, line);
+    append_line(out, out_cap, "");
+
+    append_line(out, out_cap, "--- Test Results ---");
+    sprintf(line, "Integer   : Raw %.2f, Norm %.2f", raw_scores[0], norm_scores[0]);
+    append_line(out, out_cap, line);
+    sprintf(line, "Float     : Raw %.2f, Norm %.2f", raw_scores[1], norm_scores[1]);
+    append_line(out, out_cap, line);
+    sprintf(line, "MemOps    : Raw %.2f, Norm %.2f", raw_scores[2], norm_scores[2]);
+    append_line(out, out_cap, line);
+    sprintf(line, "Crypto    : Raw %.2f, Norm %.2f", raw_scores[3], norm_scores[3]);
+    append_line(out, out_cap, line);
+    sprintf(line, "Compress  : Raw %.2f, Norm %.2f", raw_scores[4], norm_scores[4]);
+    append_line(out, out_cap, line);
+    sprintf(line, "Matrix    : Raw %.2f, Norm %.2f", raw_scores[5], norm_scores[5]);
+    append_line(out, out_cap, line);
+    if (timeouts) {
+        sprintf(line, "Timeouts  : 0x%lX", timeouts);
+        append_line(out, out_cap, line);
+    }
+    append_line(out, out_cap, "");
+
+    sprintf(line, "Total Score: %lu", total_score);
+    append_line(out, out_cap, line);
 
     if (!magic_ok) append_line(out, out_cap, "[WARN] Magic mismatch");
     if (!checksum_ok) {
