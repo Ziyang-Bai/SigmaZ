@@ -849,7 +849,7 @@ BOOL CALLBACK MainDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
         
         SetDlgItemText(hwnd, IDC_ABOUT_REPORT,
-            "SigmaZ Benchmark v1.1\r\n\r\n"
+            "SigmaZ Benchmark v1.2\r\n\r\n"
             "Workloads:\r\n"
             "- Integer: Machin-Pi (Single/Multi)\r\n"
             "- Float: Mandelbrot Set (Double Precision)\r\n"
