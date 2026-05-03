@@ -45,7 +45,7 @@ static void init_matrix(double *m, int n) {
 static int mat_mul(const double *A, const double *B, double *C, int n, BENCH_CALLBACK callback) {
     int i, j, k;
     for (i = 0; i < n; i++) {
-        /* Check Timeout */
+        
         Timer_Stop();
         if (Timer_GetElapsedMs() > BENCH_TIMEOUT_MS) {
             g_BenchTimedOut = 1;
@@ -59,7 +59,7 @@ static int mat_mul(const double *A, const double *B, double *C, int n, BENCH_CAL
             }
             C[i * n + j] = sum;
         }
-        /* Update progress every 5% of rows to keep UI responsive */
+        
         if (callback && (i % (n/20) == 0)) {
             callback((i * 100) / n);
         }
@@ -83,7 +83,7 @@ double RunMatrixBenchmark(BENCH_CALLBACK callback) {
     B = (double*)malloc(MAT_N * MAT_N * sizeof(double));
     C = (double*)malloc(MAT_N * MAT_N * sizeof(double));
 #else
-    /* Win16: 64*64*8 = 32KB per matrix. Total 96KB -> Exceeds 64KB DGROUP. Must use GlobalAlloc */
+    
     hA = GlobalAlloc(GMEM_MOVEABLE, MAT_N * MAT_N * sizeof(double));
     if (hA) A = (double*)GlobalLock(hA); else A = NULL;
 
@@ -110,9 +110,12 @@ double RunMatrixBenchmark(BENCH_CALLBACK callback) {
         return 0.0;
     }
     
-    /* Initialize with deterministic values */
+    
     init_matrix(A, MAT_N);
     init_matrix(B, MAT_N);
+
+    
+    mat_mul(A, B, C, MAT_N, NULL);
 
     Timer_Init();
     g_BenchTimedOut = 0;

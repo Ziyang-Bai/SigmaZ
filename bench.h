@@ -28,7 +28,7 @@
  */
 #define BENCH_SCORE_SCALE 1000000UL
 
-/* Progress callback: percent range 0..100 */
+
 typedef void (*BENCH_CALLBACK)(int percent);
 
 /* 
@@ -38,7 +38,7 @@ typedef void (*BENCH_CALLBACK)(int percent);
  */
 #define BENCH_TIMEOUT_MS 60000
 
-/* Flag to indicate if the last benchmark was terminated early due to timeout */
+
 extern int g_BenchTimedOut;
 
 /*
@@ -53,22 +53,22 @@ DWORD RunSingleThreadBenchmark(BENCH_CALLBACK callback);
  */
 DWORD RunMultiCoreBenchmark(BENCH_CALLBACK callback);
 
-/* Format the PI result into a string buffer */
+
 void GetSigmaLMPiResult(char* buffer);
 
-/* FPU (Mandelbrot) Benchmark */
+
 DWORD RunFloatBenchmark(BENCH_CALLBACK callback);
 
-/* Memory (Stream Copy) Benchmark */
+
 DWORD RunMemoryBenchmark(BENCH_CALLBACK callback);
 
-/* Crypto Benchmark */
+
 double RunCryptoBenchmark(BENCH_CALLBACK callback);
 
-/* Compression Benchmark */
+
 double RunCompressionBenchmark(BENCH_CALLBACK callback);
 
-/* Matrix Benchmark */
+
 double RunMatrixBenchmark(BENCH_CALLBACK callback);
 
 #endif

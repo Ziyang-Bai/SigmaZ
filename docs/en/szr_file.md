@@ -2,7 +2,7 @@
 
 ## Overview
 
-`SZR` is SigmaZ's binary benchmark report format (default extension: `.szr`). It stores hardware information, raw scores, normalized scores, timeout flags, and the total score from a full benchmark run. You may upload `.szr` files to the [SigmaZ Leaderboard](https://sigmaz.retrolab.top) to share your scores with players worldwide.
+`SZR` is SigmaZ's binary benchmark report format (default extension: `.szr`). It stores hardware information, raw scores, normalized scores, timeout flags, and the total score from a full benchmark run. You may upload `.szr` files to the [SigmaZ Leaderboard](https://sigmaz.retrolab.top/)
 
 The current format version (`0x00020001`) is serialized from a fixed-size packed struct with:
 

@@ -6,7 +6,7 @@
 
 ![SigmaZ On Windows 95](assets/win95.png)
 ![SigmaZ 31](assets/31.png)
-[![SigmaZ Online](assets/board.png)](https://sigmaz.retrolab.top)
+[![SigmaZ Online](assets/board.png)](https:
 
 ## Key Features
 

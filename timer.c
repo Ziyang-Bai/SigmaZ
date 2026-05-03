@@ -24,7 +24,7 @@ static int g_Initialized = 0;
 void Timer_Init(void) {
     DWORD ver = GetVersion();
 
-    /* Win9x/ME: force GetTickCount path for stability */
+    
     if (ver & 0x80000000UL) {
         g_HasPerf = 0;
     } else {
@@ -66,12 +66,12 @@ double Timer_GetElapsedMs(void) {
 
 #else
 
-/* Win16 Implementation */
+
 static DWORD g_Start;
 static DWORD g_End;
 
 void Timer_Init(void) {
-    /* No-op */
+    
 }
 
 void Timer_Start(void) {

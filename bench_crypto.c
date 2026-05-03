@@ -18,13 +18,13 @@
  * - Win32/64: AES-NI / SHA (Stub for future expansion)
  */
 
-/* CRC32 Constants */
+
 #define CRC_POLY 0xEDB88320
 
 static unsigned long crc_table[256];
 static int crc_table_computed = 0;
 
-/* Precompute CRC table */
+
 static void make_crc_table(void) {
     unsigned long c;
     int n, k;
@@ -42,7 +42,7 @@ static void make_crc_table(void) {
     crc_table_computed = 1;
 }
 
-/* Update a running CRC with the bytes buf[0..len-1] */
+
 static unsigned long update_crc(unsigned long crc, const unsigned char *buf, int len) {
     unsigned long c = crc;
     int n;
@@ -56,7 +56,7 @@ static unsigned long update_crc(unsigned long crc, const unsigned char *buf, int
     return c;
 }
 
-/* Return the CRC of the bytes buf[0..len-1] */
+
 static unsigned long crc32(const unsigned char *buf, int len) {
     return update_crc(0xffffffffL, buf, len) ^ 0xffffffffL;
 }
@@ -77,17 +77,17 @@ double RunCryptoBenchmark(BENCH_CALLBACK callback) {
     HGLOBAL hBuf = NULL;
 #endif
     
-    (void)callback; /* Unused for now */
+    (void)callback; 
     
     /*
      * Sizing:
      * Standardize on 16KB for all platforms to ensure consistent buffer size.
      */
 #ifdef _WIN32
-    buf_size = 16384;       /* 16KB */
+    buf_size = 16384;       
     loop_count = 100000;
 #else
-    buf_size = 16384;       /* 16KB */
+    buf_size = 16384;       
     loop_count = 500;
 #endif
 
@@ -101,13 +101,14 @@ double RunCryptoBenchmark(BENCH_CALLBACK callback) {
 
     if (!buffer) return 0.0;
     
-    /* Fill buffer with some pattern */
+    
     for (i = 0; i < (int)buf_size; i++) {
         buffer[i] = (unsigned char)(i & 0xFF);
     }
     
-    /* Warmup */
+    
     make_crc_table();
+    crc32(buffer, (int)buf_size);
 
     Timer_Init();
     g_BenchTimedOut = 0;
@@ -120,7 +121,7 @@ double RunCryptoBenchmark(BENCH_CALLBACK callback) {
 
         if (callback) callback(((i + 1) * 100) / loop_count);
 
-        /* Check for timeout */
+        
         Timer_Stop();
         if (Timer_GetElapsedMs() > BENCH_TIMEOUT_MS) {
             g_BenchTimedOut = 1;
@@ -139,6 +140,6 @@ double RunCryptoBenchmark(BENCH_CALLBACK callback) {
 #endif
 
     if (duration <= 0.0) return 0.0;
-    return ((double)total_bytes / 1024.0) / duration; /* KB/sec */
+    return ((double)total_bytes / 1024.0) / duration; 
 }
 

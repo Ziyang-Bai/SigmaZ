@@ -20,13 +20,13 @@ volatile unsigned char g_mem_acc = 0;
 
 #ifdef _WIN32
   #if defined(_WIN64)
-    #define BUFFER_SIZE (128 * 1024 * 1024) /* 128 MB for Win64 */
+    #define BUFFER_SIZE (128 * 1024 * 1024) 
   #else
-    #define BUFFER_SIZE (32 * 1024 * 1024)  /* 32 MB for Win32 */
+    #define BUFFER_SIZE (32 * 1024 * 1024)  
   #endif
 #else
   #define WIN16_NUM_BLOCKS 8
-  #define WIN16_BLOCK_SIZE 60000 /* Keep under 64KB, total 480KB */
+  #define WIN16_BLOCK_SIZE 60000 
 #endif
 
 /*
@@ -58,15 +58,16 @@ DWORD RunMemoryBenchmark(BENCH_CALLBACK callback) {
     if (!src || !dst) {
         if (src) free(src);
         if (dst) free(dst);
-        return 0; /* Alloc failed */
+        return 0; 
     }
 
-    /* Initialize */
-    for (b = 0; b < 1024; b++) {
+    
+    for (b = 0; b < (int)BUFFER_SIZE; b += 4096) {
         src[b] = (char)(b & 0xFF);
+        dst[b] = 0;
     }
 #else
-    /* Win16 Allocation */
+    
     for (b = 0; b < WIN16_NUM_BLOCKS; b++) {
         hSrc[b] = GlobalAlloc(GHND, WIN16_BLOCK_SIZE);
         hDst[b] = GlobalAlloc(GHND, WIN16_BLOCK_SIZE);
@@ -86,8 +87,10 @@ DWORD RunMemoryBenchmark(BENCH_CALLBACK callback) {
         return 0;
     }
     
+    
     for (b = 0; b < WIN16_NUM_BLOCKS; b++) {
         pSrc[b][0] = 1;
+        pDst[b][0] = 0;
     }
 #endif
 

@@ -60,7 +60,7 @@ def generate_hhc(lang, file_props, output_path):
         if f not in priority:
             sorted_files.append((f, file_props[f]))
 
-    content = """<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+    content = """<!DOCTYPE HTML PUBLIC "-
 <HTML>
 <HEAD>
 <meta name="GENERATOR" content="SigmaZ Build Script">

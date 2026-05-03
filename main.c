@@ -19,24 +19,29 @@
 #define MAX_PATH 260
 #endif
 
-/* Global HWND for callback to update */
-static HWND g_hDlg = NULL;
-static HINSTANCE g_hInst = NULL; /* Global Instance Handle */
-static int g_ProgID = 0; /* ID of the static text to update with progress */
 
-/* Scores across tabs */
+#ifdef _MSC_VER
+#define chdir _chdir
+#endif
+
+
+static HWND g_hDlg = NULL;
+static HINSTANCE g_hInst = NULL; 
+static int g_ProgID = 0; 
+
+
 static unsigned long g_ScoreIntS = 0;
 static unsigned long g_ScoreIntM = 0;
 static unsigned long g_ScoreFloat = 0;
 static unsigned long g_ScoreMem = 0;
-static double g_ScoreCrypto = 0.0; /* KB/sec */
-static double g_ScoreCompress = 0.0; /* KB/sec */
-static double g_ScoreMatrix = 0.0; /* Matrices/sec */
+static double g_ScoreCrypto = 0.0; 
+static double g_ScoreCompress = 0.0; 
+static double g_ScoreMatrix = 0.0; 
 static unsigned long g_Timeouts = 0;
 static unsigned long g_LastTotalScore = 0;
 static int g_ReportReady = 0;
 
-/* SigmaZ binary report (.SZR) */
+
 #pragma pack(push, 1)
 typedef struct {
     char magic[4];
@@ -64,23 +69,23 @@ typedef struct {
 #define SZR_VERSION 0x00020001UL
 #define SZR_XOR_KEY "SigmaZ95"
 
-/* Reference Machine 486 DX2-66 Baseline Constants */
-#define REF_INT_OPS   84.0       /* Approx int ops/sec on 486 */
-#define REF_FLOAT_OPS 170.0      /* Approx Mandelbrot iters/ms on 486 */
-#define REF_MEM_BW    24.0       /* Approx MB/s memcpy on 486 */
-#define REF_CRYPTO_BW 189.0      /* Approx KB/s CRC32 on 486 */
-#define REF_COMPRESS_BW 0.58     /* Approx KB/s LZ on 486 */
-#define REF_MATRIX_OPS 0.91      /* Approx Matrices/sec on 486 */
 
-/* Helper to Calculate Normalized Score (100 = 486 DX2-66) */
+#define REF_INT_OPS   84.0       
+#define REF_FLOAT_OPS 170.0      
+#define REF_MEM_BW    24.0       
+#define REF_CRYPTO_BW 189.0      
+#define REF_COMPRESS_BW 0.58     
+#define REF_MATRIX_OPS 0.91      
+
+
 static double CalcScore(double val, double ref) {
     if (ref <= 0.0001) return 0.0;
     return (val / ref) * 100.0;
 }
 
-/* Helper to Calculate Weighted Geometric Mean */
+
 static double CalcTotalScore(double s_int, double s_float, double s_mem, double s_crypto, double s_comp, double s_mat) {
-    /* Avoid log(0) */
+    
     if (s_int < 1.0) s_int = 1.0;
     if (s_float < 1.0) s_float = 1.0;
     if (s_mem < 1.0) s_mem = 1.0;
@@ -109,15 +114,8 @@ static double CalcTotalScore(double s_int, double s_float, double s_mem, double 
         return exp(log_sum);
     }
 }
-    /* Actually we can just use simple weighted arithmetic mean if math lib is missing, 
-       but user specific Geometric Mean. 
-       Let's try to assume pow() is available.
-    */
-    /* 
-       pow(s_int, 0.3) * pow(s_float, 0.3) * pow(s_mem, 0.2) * pow(s_crypto, 0.2)
-    */
 
-/* Active Tab State */
+
 #define TAB_CPU     0
 #define TAB_INT     1
 #define TAB_FLOAT   2
@@ -131,19 +129,19 @@ static double CalcTotalScore(double s_int, double s_float, double s_mem, double 
 
 static int g_CurrentTab = TAB_CPU;
 
-/* Helper to Show/Hide Controls */
+
 static void ShowCtrl(HWND hwnd, int nID, int show) {
     ShowWindow(GetDlgItem(hwnd, nID), show ? SW_SHOW : SW_HIDE);
 }
 
-/* Helper to Show/Hide Groups of Controls */
+
 void UpdateTabs(HWND hwnd) {
-    /* CPU Tab */
+    
     int s = (g_CurrentTab == TAB_CPU);
     ShowCtrl(hwnd, IDC_CPU_GRP, s);
     ShowCtrl(hwnd, IDC_CPU_REPORT, s);
     
-    /* Integer Tab */
+    
     s = (g_CurrentTab == TAB_INT);
     ShowCtrl(hwnd, IDC_INT_GRP, s);
     ShowCtrl(hwnd, IDC_INT_BTN_S, s);
@@ -151,55 +149,54 @@ void UpdateTabs(HWND hwnd) {
     ShowCtrl(hwnd, IDC_INT_REPORT, s);
     ShowCtrl(hwnd, IDC_INT_PROG, s);
     
-    /* Float Tab */
+    
     s = (g_CurrentTab == TAB_FLOAT);
     ShowCtrl(hwnd, IDC_FLOAT_GRP, s);
     ShowCtrl(hwnd, IDC_FLOAT_BTN, s);
     ShowCtrl(hwnd, IDC_FLOAT_REPORT, s);
     ShowCtrl(hwnd, IDC_FLOAT_PROG, s);
 
-    /* Memory Tab */
+    
     s = (g_CurrentTab == TAB_MEM);
     ShowCtrl(hwnd, IDC_MEM_GRP, s);
     ShowCtrl(hwnd, IDC_MEM_BTN, s);
     ShowCtrl(hwnd, IDC_MEM_REPORT, s);
     ShowCtrl(hwnd, IDC_MEM_PROG, s);
 
-    /* Crypto Tab */
+    
     s = (g_CurrentTab == TAB_CRYPTO);
     ShowCtrl(hwnd, IDC_CRY_GRP, s);
     ShowCtrl(hwnd, IDC_CRY_BTN, s);
     ShowCtrl(hwnd, IDC_CRY_REPORT, s);
     ShowCtrl(hwnd, IDC_CRY_PROG, s);
 
-    /* Compress Tab */
+    
     s = (g_CurrentTab == TAB_COMP);
     ShowCtrl(hwnd, IDC_CMP_GRP, s);
     ShowCtrl(hwnd, IDC_CMP_BTN, s);
     ShowCtrl(hwnd, IDC_CMP_REPORT, s);
     ShowCtrl(hwnd, IDC_CMP_PROG, s);
 
-    /* Matrix Tab */
+    
     s = (g_CurrentTab == TAB_MATRIX);
     ShowCtrl(hwnd, IDC_MAT_GRP, s);
     ShowCtrl(hwnd, IDC_MAT_BTN, s);
     ShowCtrl(hwnd, IDC_MAT_REPORT, s);
     ShowCtrl(hwnd, IDC_MAT_PROG, s);
 
-    /* Summary Tab */
+    
     s = (g_CurrentTab == TAB_ALL);
-
     ShowCtrl(hwnd, IDC_ALL_GRP, s);
     ShowCtrl(hwnd, IDC_ALL_BTN, s);
     ShowCtrl(hwnd, IDC_ALL_REPORT, s);
     ShowCtrl(hwnd, IDC_ALL_PROG, s);
 
-    /* About Tab */
+    
     s = (g_CurrentTab == TAB_ABOUT);
     ShowCtrl(hwnd, IDC_ABOUT_GRP, s);
     ShowCtrl(hwnd, IDC_ABOUT_REPORT, s);
 
-    /* Report Save Tab */
+    
     s = (g_CurrentTab == TAB_REPORT);
     ShowCtrl(hwnd, IDC_RPT_GRP, s);
     ShowCtrl(hwnd, IDC_RPT_PATHLBL, s);
@@ -211,21 +208,20 @@ void UpdateTabs(HWND hwnd) {
     ShowCtrl(hwnd, IDC_RPT_SAVE, s);
     ShowCtrl(hwnd, IDC_RPT_STATUS, s);
     
-    /* Forces redraw of group boxes which might have artifacts */
+    
     InvalidateRect(hwnd, NULL, TRUE);
 }
 
-/* Callback wrapper matching BENCH_CALLBACK signature (int percent) */
+
 void BenchCallbackBridge(int percent) {
     char buf[16];
     char title[64];
     
     if (g_hDlg && g_ProgID) {
-        /* Simple percent display */
         sprintf(buf, "%d%%", percent);
         SetDlgItemText(g_hDlg, g_ProgID, buf);
         
-        /* Sync Title Bar */
+        
         if (percent < 100) {
             sprintf(title, "SigmaZ - Running... %d%%", percent);
         } else {
@@ -233,9 +229,9 @@ void BenchCallbackBridge(int percent) {
         }
         SetWindowText(g_hDlg, title);
         
-        UpdateWindow(g_hDlg); /* Force repaint */
+        UpdateWindow(g_hDlg);
         
-        /* Pump UI messages to prevent "Not Responding" */
+        
         {
             MSG msg;
             while(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
@@ -248,7 +244,7 @@ void BenchCallbackBridge(int percent) {
     }
 }
 
-/* Helper to disable buttons during test */
+
 void SetButtonsEnable(HWND hwnd, BOOL enable) {
     EnableWindow(GetDlgItem(hwnd, IDC_INT_BTN_S), enable);
     EnableWindow(GetDlgItem(hwnd, IDC_INT_BTN_M), enable);
@@ -261,7 +257,6 @@ void SetButtonsEnable(HWND hwnd, BOOL enable) {
     EnableWindow(GetDlgItem(hwnd, IDC_ALL_BTN), enable);
     EnableWindow(GetDlgItem(hwnd, IDC_EXIT_BTN), enable);
     
-    /* Disable tabs too to prevent switching during bench */
     EnableWindow(GetDlgItem(hwnd, IDC_TAB_CPU), enable);
     EnableWindow(GetDlgItem(hwnd, IDC_TAB_INT), enable);
     EnableWindow(GetDlgItem(hwnd, IDC_TAB_FLOAT), enable);
@@ -280,10 +275,10 @@ void SetButtonsEnable(HWND hwnd, BOOL enable) {
     }
 }
 
-/* Helper to set report text */
 static void SetReport(HWND hwnd, int nID, const char* text) {
     SetDlgItemText(hwnd, nID, text);
 }
+
 
 static void SZR_XorData(unsigned char *data, size_t len) {
     const char *key = SZR_XOR_KEY;
@@ -293,6 +288,7 @@ static void SZR_XorData(unsigned char *data, size_t len) {
     }
 }
 
+
 static unsigned long SZR_CalcChecksum(const SZR_Report *r) {
     const unsigned char *ptr = (const unsigned char *)r;
     unsigned long sum = 0x7A69676DL;
@@ -301,21 +297,6 @@ static unsigned long SZR_CalcChecksum(const SZR_Report *r) {
         sum = (sum << 1) + ptr[i];
     }
     return sum;
-}
-
-static unsigned long ParseLeadingUL(const char* text) {
-    unsigned long value = 0;
-    int seen_digit = 0;
-    while (*text) {
-        if (*text >= '0' && *text <= '9') {
-            seen_digit = 1;
-            value = (value * 10UL) + (unsigned long)(*text - '0');
-        } else if (seen_digit) {
-            break;
-        }
-        text++;
-    }
-    return value;
 }
 
 static int SaveSZRFile(const char* filename, unsigned long total_score) {
@@ -480,7 +461,7 @@ static void SaveReportFromTab(HWND hwnd) {
     }
 }
 
-/* Helper to build CPU pane report text */
+
 static void BuildCPUInfoReport(char* report_buf) {
     char vendor_buf[16];
     char brand_buf[65];
@@ -533,7 +514,7 @@ static void BuildCPUInfoReport(char* report_buf) {
         vendor_buf, brand_buf, mode_buf, bitness_buf, features_buf, cores_buf, sig_buf, cache_buf, sys_buf, mobo_buf, mem_buf, bios_buf);
 }
 
-/* Run Int Single */
+
 void RunIntSingle(HWND hwnd) {
     char buf[1024];
     
@@ -541,7 +522,7 @@ void RunIntSingle(HWND hwnd) {
     SetDlgItemText(hwnd, g_ProgID, "Running Single-Thread Integer...");
     SetButtonsEnable(hwnd, FALSE);
     
-    /* Returns Normalized Score directly (Iterations per unit time) */
+    
     g_ScoreIntS = RunSingleThreadBenchmark(BenchCallbackBridge);
     
     sprintf(buf, "--- Integer Performance Report ---\r\n\r\n"
@@ -559,7 +540,7 @@ void RunIntSingle(HWND hwnd) {
     SetButtonsEnable(hwnd, TRUE);
 }
 
-/* Run Int Multi */
+
 void RunIntMulti(HWND hwnd) {
     char buf[1024];
     int cores = GetCPUCount();
@@ -569,7 +550,7 @@ void RunIntMulti(HWND hwnd) {
     SetDlgItemText(hwnd, g_ProgID, "Running Multi-Thread Integer...");
     SetButtonsEnable(hwnd, FALSE);
     
-    /* Returns Normalized Score directly */
+    
     if (g_ScoreIntS == 0) {
         g_ScoreIntS = RunSingleThreadBenchmark(NULL);
         if (g_BenchTimedOut) any_timeout = 1;
@@ -577,7 +558,7 @@ void RunIntMulti(HWND hwnd) {
     g_ScoreIntM = RunMultiCoreBenchmark(BenchCallbackBridge);
     if (g_BenchTimedOut) any_timeout = 1;
     
-    /* Efficiency */
+    
     {
         double eff = 0.0;
         if (g_ScoreIntS > 0 && cores > 1) {
@@ -604,7 +585,7 @@ void RunIntMulti(HWND hwnd) {
     SetButtonsEnable(hwnd, TRUE);
 }
 
-/* Run Float */
+
 void RunFloat(HWND hwnd) {
     char buf[1024];
     
@@ -629,7 +610,7 @@ void RunFloat(HWND hwnd) {
     SetButtonsEnable(hwnd, TRUE);
 }
 
-/* Run Mem */
+
 void RunMem(HWND hwnd) {
     char buf[1024];
     
@@ -654,7 +635,7 @@ void RunMem(HWND hwnd) {
     SetButtonsEnable(hwnd, TRUE);
 }
 
-/* Run Crypto */
+
 void RunCrypto(HWND hwnd) {
     char buf[1024];
     
@@ -679,7 +660,7 @@ void RunCrypto(HWND hwnd) {
     SetButtonsEnable(hwnd, TRUE);
 }
 
-/* Run Compress */
+
 void RunCompress(HWND hwnd) {
     char buf[1024];
     
@@ -704,7 +685,7 @@ void RunCompress(HWND hwnd) {
     SetButtonsEnable(hwnd, TRUE);
 }
 
-/* Run Matrix */
+
 void RunMatrix(HWND hwnd) {
     char buf[1024];
     
@@ -729,7 +710,7 @@ void RunMatrix(HWND hwnd) {
 }
 
 
-/* Run ALL */
+
 void RunAll(HWND hwnd) {
     static char buf[4096];
     char cpu_info[1024];
@@ -744,11 +725,11 @@ void RunAll(HWND hwnd) {
     g_ReportReady = 0;
     SetButtonsEnable(hwnd, FALSE);
     
-    /* Clear Report */
+    
     SetReport(hwnd, IDC_ALL_REPORT, "Running Comprehensive Benchmark Suite...\r\nPlease Wait.");
     g_Timeouts = 0;
 
-    /* 1. Int */
+    
     SetDlgItemText(hwnd, g_ProgID, "Test 1/6: Integer...");
     if (GetCPUCount() > 1) {
          g_ScoreIntM = RunMultiCoreBenchmark(BenchCallbackBridge);
@@ -757,27 +738,27 @@ void RunAll(HWND hwnd) {
     }
     if (g_BenchTimedOut) { to_int = 1; any_timeout = 1; g_Timeouts |= 1; }
 
-    /* 2. Float */
+    
     SetDlgItemText(hwnd, g_ProgID, "Test 2/6: Float FPU...");
     g_ScoreFloat = RunFloatBenchmark(BenchCallbackBridge);
     if (g_BenchTimedOut) { to_float = 1; any_timeout = 1; g_Timeouts |= 2; }
 
-    /* 3. Mem */
+    
     SetDlgItemText(hwnd, g_ProgID, "Test 3/6: Memory Ops...");
     g_ScoreMem = RunMemoryBenchmark(BenchCallbackBridge);
     if (g_BenchTimedOut) { to_mem = 1; any_timeout = 1; g_Timeouts |= 4; }
 
-    /* 4. Crypto */
+    
     SetDlgItemText(hwnd, g_ProgID, "Test 4/6: Crypto...");
     g_ScoreCrypto = RunCryptoBenchmark(BenchCallbackBridge);
     if (g_BenchTimedOut) { to_crypto = 1; any_timeout = 1; g_Timeouts |= 8; }
 
-    /* 5. Compress */
+    
     SetDlgItemText(hwnd, g_ProgID, "Test 5/6: Compression...");
     g_ScoreCompress = RunCompressionBenchmark(BenchCallbackBridge);
     if (g_BenchTimedOut) { to_comp = 1; any_timeout = 1; g_Timeouts |= 16; }
 
-    /* 6. Matrix */
+    
     SetDlgItemText(hwnd, g_ProgID, "Test 6/6: Matrix Math...");
     g_ScoreMatrix = RunMatrixBenchmark(BenchCallbackBridge);
     if (g_BenchTimedOut) { to_mat = 1; any_timeout = 1; g_Timeouts |= 32; }
@@ -793,7 +774,7 @@ void RunAll(HWND hwnd) {
     g_LastTotalScore = total_u32;
     g_ReportReady = 1;
 
-    /* Generate Report */
+    
     sprintf(buf, "--- SigmaZ Comprehensive Report ---\r\n\r\n");
     BuildCPUInfoReport(cpu_info);
     strcat(buf, cpu_info);
@@ -860,20 +841,21 @@ void RunAll(HWND hwnd) {
     SetButtonsEnable(hwnd, TRUE);
 }
 
-/* Dialog Procedure to handle messages */
+
 BOOL CALLBACK MainDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    (void)lParam;
     switch (msg) {
     case WM_INITDIALOG:
         g_hDlg = hwnd;
 
-        /* --- CPU INFO TAB --- */
+        
         {
             char report_buf[1024];
             BuildCPUInfoReport(report_buf);
             SetDlgItemText(hwnd, IDC_CPU_REPORT, report_buf);
         }
 
-        /* --- ABOUT TAB --- */
+        
         SetDlgItemText(hwnd, IDC_ABOUT_REPORT,
             "SigmaZ Benchmark v1.1\r\n\r\n"
             "Workloads:\r\n"
@@ -892,7 +874,7 @@ BOOL CALLBACK MainDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             "Open Source Project. Licensed under the GNU General Public License v3.0\r\n"
             "Copyright (c) Ziyang Bai 2026.");
         
-        /* --- BENCH LABELS --- */
+        
         SetDlgItemText(hwnd, IDC_INT_REPORT,  "---");
         SetDlgItemText(hwnd, IDC_FLOAT_REPORT,"---");
         SetDlgItemText(hwnd, IDC_MEM_REPORT,  "---");
@@ -912,11 +894,11 @@ BOOL CALLBACK MainDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         RefreshReportDirList(hwnd);
         EnableWindow(GetDlgItem(hwnd, IDC_RPT_SAVE), FALSE);
 
-        /* Initialize Tab State */
+        
         g_CurrentTab = TAB_CPU;
         UpdateTabs(hwnd);
         
-        /* Center window */
+        
         {
             RECT rc;
             int screenX = GetSystemMetrics(SM_CXSCREEN);
@@ -928,24 +910,42 @@ BOOL CALLBACK MainDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 0, 0, SWP_NOSIZE | SWP_NOZORDER);
         }
 
-        /* Show Startup Hint */
+        
         {
-            char hint[512];
-            /* Load string from resource */
-            if (LoadString(g_hInst, IDS_STARTUP_HINT, hint, sizeof(hint)) > 0) {
-                /* Force window to appear before msgbox */
-                ShowWindow(hwnd, SW_SHOW);
-                UpdateWindow(hwnd);
-                MessageBox(hwnd, hint, "SigmaZ Info", MB_OK | MB_ICONINFORMATION);
+            BOOL is_mismatch = FALSE;
+            char warn_msg[256];
+            
+#if defined(_WIN32) && !defined(_WIN64)
+            
+            typedef BOOL (WINAPI *LPFN_ISWOW64PROCESS) (HANDLE, PBOOL);
+            LPFN_ISWOW64PROCESS pIsWow64Process = (LPFN_ISWOW64PROCESS)GetProcAddress(GetModuleHandle("kernel32"), "IsWow64Process");
+            BOOL isWow64 = FALSE;
+            if (pIsWow64Process && pIsWow64Process(GetCurrentProcess(), &isWow64) && isWow64) {
+                is_mismatch = TRUE;
+                strcpy(warn_msg, "Bitness mismatch detected. Benchmark results in compatibility mode may be inaccurate.");
+            }
+#elif !defined(_WIN32)
+            
+            DWORD dwVersion = GetVersion();
+            if (LOBYTE(LOWORD(dwVersion)) >= 4 || (dwVersion & 0x80000000UL) == 0) {
+                
+                is_mismatch = TRUE;
+                strcpy(warn_msg, "Bitness mismatch detected. Benchmark results in compatibility mode may be inaccurate.");
+            }
+#endif
+            if (is_mismatch) {
+                MessageBox(hwnd, warn_msg, "SigmaZ Warning", MB_OK | MB_ICONEXCLAMATION);
             }
         }
+
+        
 
         return TRUE;
 
     case WM_COMMAND:
         switch (LOWORD(wParam)) {
             
-        /* --- TAB SWITCHING --- */
+        
         case IDC_TAB_CPU:
             g_CurrentTab = TAB_CPU; 
             UpdateTabs(hwnd);
@@ -987,7 +987,7 @@ BOOL CALLBACK MainDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             UpdateTabs(hwnd);
             return TRUE;
 
-        /* --- BENCHMARKS --- */
+        
         case IDC_INT_BTN_S:
             RunIntSingle(hwnd);
             return TRUE;
@@ -1040,8 +1040,11 @@ BOOL CALLBACK MainDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     return FALSE;
 }
 
-/* Entry point */
+
 int PASCAL WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLine, int nCmdShow) {
+    (void)hPrevInstance;
+    (void)lpszCmdLine;
+    (void)nCmdShow;
     g_hInst = hInstance;
     return DialogBox(hInstance, MAKEINTRESOURCE(IDD_MAIN_DLG), NULL, (DLGPROC)MainDlgProc);
 }

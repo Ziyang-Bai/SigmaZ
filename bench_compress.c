@@ -33,17 +33,17 @@
 #else
   #define COMP_LOOPS 250
 #endif
-/* Simple hash for data generation */
+
 static void fill_random_data(unsigned char *buf, size_t size) {
     size_t i;
     unsigned long seed = 12345;
-    /* Create some repeatable patterns for compression to find */
+    
     for (i = 0; i < size; i++) {
         seed = seed * 1664525 + 1013904223;
-        /* Bias towards printable chars and repeated sequences */
+        
         buf[i] = (unsigned char)((seed >> 24) % 128); 
         if (i % 50 == 0) {
-           /* Inject a run of As */
+           
            int j, run = (seed % 10) + 3;
            for (j=0; j<run && (i+j)<size; j++) buf[i+j] = 'A';
            i += j;
@@ -66,24 +66,24 @@ static unsigned long lz_compress(const unsigned char *src, unsigned long src_len
         int max_search;
         int i, len;
 
-        /* Skip if near end */
+        
         if (src_pos + MIN_MATCH_LEN >= src_len) {
             dst[dst_pos++] = src[src_pos++];
             continue;
         }
 
-        /* Search backwards in window */
+        
         max_search = (src_pos > WINDOW_SIZE) ? WINDOW_SIZE : (int)src_pos;
         
-        /* Brute force search (Good for CPU branching/ALU stress) */
-        /* Optimization: In real world, use hash chain. Here, O(N*Window) stresses CPU more. */
+        
+        
         for (i = 1; i <= max_search; i++) {
             const unsigned char *prev = &src[src_pos - i];
             const unsigned char *curr = &src[src_pos];
             
-            /* Check match at this distance */
+            
             if (prev[0] == curr[0] && prev[1] == curr[1] && prev[2] == curr[2]) {
-                /* Found candidate, extend */
+                
                 for (len = 0; len < MAX_MATCH_LEN && (src_pos + len < src_len); len++) {
                     if (prev[len] != curr[len]) break;
                 }
@@ -96,14 +96,14 @@ static unsigned long lz_compress(const unsigned char *src, unsigned long src_len
         }
 
         if (best_match_len >= MIN_MATCH_LEN) {
-            /* Output token (Simulated: Tag + Dist + Len) */
-            /* In real deflate: Huffman encoding here */
-            dst[dst_pos++] = 0xFF; /* Marker */
+            
+            
+            dst[dst_pos++] = 0xFF; 
             dst[dst_pos++] = (unsigned char)(best_match_dist & 0xFF);
             dst[dst_pos++] = (unsigned char)(best_match_len);
             src_pos += best_match_len;
         } else {
-            /* Literal */
+            
             dst[dst_pos++] = src[src_pos++];
         }
     }
@@ -122,12 +122,12 @@ double RunCompressionBenchmark(BENCH_CALLBACK callback) {
     HGLOBAL hOut = NULL;
 #endif
     
-    /* Alloc buffers */
+    
 #ifdef _WIN32
     in_buf = (unsigned char*)malloc(COMP_INPUT_SIZE);
     out_buf = (unsigned char*)malloc(COMP_INPUT_SIZE + 4096); 
 #else
-    /* Win16: Use GlobalAlloc to avoid DGROUP/Stack overflow */
+    
     hIn = GlobalAlloc(GMEM_MOVEABLE, COMP_INPUT_SIZE);
     if (hIn) in_buf = (unsigned char*)GlobalLock(hIn);
     else in_buf = NULL;
@@ -152,6 +152,9 @@ double RunCompressionBenchmark(BENCH_CALLBACK callback) {
     
     fill_random_data(in_buf, COMP_INPUT_SIZE);
 
+    
+    lz_compress(in_buf, COMP_INPUT_SIZE, out_buf);
+
     Timer_Init();
     g_BenchTimedOut = 0;
     Timer_Start();
@@ -163,7 +166,7 @@ double RunCompressionBenchmark(BENCH_CALLBACK callback) {
         
         if (callback) callback(((i + 1) * 100) / COMP_LOOPS);
 
-        /* Check for timeout */
+        
         Timer_Stop();
         if (Timer_GetElapsedMs() > BENCH_TIMEOUT_MS) {
             g_BenchTimedOut = 1;
@@ -185,5 +188,5 @@ double RunCompressionBenchmark(BENCH_CALLBACK callback) {
 #endif
     
     if (duration <= 0.0) return 0.0;
-    return ((double)total_bytes / 1024.0) / duration; /* KB/sec */
+    return ((double)total_bytes / 1024.0) / duration; 
 }

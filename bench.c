@@ -24,12 +24,12 @@
 
 int g_BenchTimedOut = 0;
 
-/* Number of digits to calculate */
+
 #define DIGITS 2000
-/* Base for the array elements (10000 allows storing 4 digits per int) */
+
 #define BASE 10000
-/* Number of array elements needed */
-/* +10 for safety buffer */
+
+
 #define ARR_SIZE ((DIGITS / 4) + 10)
 
 /* 
@@ -40,14 +40,14 @@ int g_BenchTimedOut = 0;
  */
 typedef long NUMBER;
 
-/* Context structure to hold thread-local buffers */
+
 typedef struct {
     NUMBER *pi;
     NUMBER *term;
     NUMBER *temp;
 } BenchContext;
 
-/* Global arrays for Single-Thread / Win16 compatibility (avoid stack/heap issues on 16-bit) */
+
 static NUMBER g_pi[ARR_SIZE];
 static NUMBER g_term[ARR_SIZE];
 static NUMBER g_temp[ARR_SIZE];
@@ -68,10 +68,10 @@ static int BigDiv(NUMBER *n, NUMBER divisor) {
         n[i] = res;
         if (res > 0) is_zero = 0;
     }
-    return !is_zero; /* Returns true if array is NOT all zeros */
+    return !is_zero; 
 }
 
-/* BigInt Addition: target = target + source */
+
 static void BigAdd(NUMBER *target, NUMBER *source) {
     int i;
     for (i = ARR_SIZE - 1; i >= 0; i--) {
@@ -83,7 +83,7 @@ static void BigAdd(NUMBER *target, NUMBER *source) {
     }
 }
 
-/* BigInt Subtraction: target = target - source */
+
 static void BigSub(NUMBER *target, NUMBER *source) {
     int i;
     for (i = ARR_SIZE - 1; i >= 0; i--) {
@@ -95,7 +95,7 @@ static void BigSub(NUMBER *target, NUMBER *source) {
     }
 }
 
-/* Initialize array with a small integer value */
+
 /* static void BigSet(NUMBER *n, NUMBER val) {
     int i;
     for (i = 0; i < ARR_SIZE; i++) n[i] = 0;
@@ -107,7 +107,7 @@ static void BigSub(NUMBER *target, NUMBER *source) {
  * target = 1/x
  */
 static void BigSetInv(NUMBER *target, NUMBER x) {
-    NUMBER remainder = 1; /* Represents the numerator '1' */
+    NUMBER remainder = 1; 
     int i;
     for (i = 0; i < ARR_SIZE; i++) {
         NUMBER val = remainder * BASE;
@@ -116,7 +116,7 @@ static void BigSetInv(NUMBER *target, NUMBER x) {
     }
 }
 
-/* Multiply by small int: target = target * multiplier */
+
 static void BigMulShort(NUMBER *target, NUMBER multiplier) {
     NUMBER carry = 0;
     int i;
@@ -141,27 +141,27 @@ static void AddArcTan(BenchContext *ctx, NUMBER *result, NUMBER x, NUMBER factor
     int sign = initial_sign; 
     int not_zero = 1;
 
-    /* Initialize term = 1/x */
+    
     BigSetInv(ctx->term, x);
 
-    /* Loop for Taylor series */
+    
     while (not_zero) {
-        /* Copy term to temp for division by 'divisor' (1, 3, 5...) */
+        
         memcpy(ctx->temp, ctx->term, sizeof(NUMBER) * ARR_SIZE);
         not_zero = BigDiv(ctx->temp, divisor);
 
-        /* Apply factor (e.g., 4) */
+        
         if (factor != 1) {
             BigMulShort(ctx->temp, factor);
         }
 
-        /* Add or Subtract from result */
+        
         if (sign > 0) 
             BigAdd(result, ctx->temp);
         else 
             BigSub(result, ctx->temp);
 
-        /* Prepare next term: term = term / x^2 */
+        
         if (not_zero) {
             if (BigDiv(ctx->term, x2) == 0) break;
         }
@@ -184,20 +184,20 @@ static int DoBenchmarkWork(BenchContext *ctx) {
      * So pi = 16 * arctan(1/5) - 4 * arctan(1/239)
      */
     for (loop_idx = 0; loop_idx < BENCH_LOOPS; loop_idx++) {
-        /* Check for timeout */
+        
         Timer_Stop();
         if (Timer_GetElapsedMs() > BENCH_TIMEOUT_MS) {
             g_BenchTimedOut = 1;
             return loop_idx;
         }
 
-        /* Reset arrays */
+        
         memset(ctx->pi, 0, sizeof(NUMBER) * ARR_SIZE);
 
-        /* Add 16 * arctan(1/5) */
+        
         AddArcTan(ctx, ctx->pi, 5, 16, 1);
     
-        /* Subtract 4 * arctan(1/239) */
+        
         AddArcTan(ctx, ctx->pi, 239, 4, -1);
     }
     return BENCH_LOOPS;
@@ -212,7 +212,7 @@ static double RunOnePassStatic(int *loops_out) {
     BenchContext ctx;
     int completed;
     
-    /* Use global arrays for single/Win16 thread */
+    
     ctx.pi = g_pi;
     ctx.term = g_term;
     ctx.temp = g_temp;
@@ -250,16 +250,16 @@ DWORD RunSingleThreadBenchmark(BENCH_CALLBACK callback) {
     int total_loops = 0;
 
     Timer_Init();
-    /* Warm up pass */
-    /* RunOnePassStatic(NULL); */
+    
+    RunOnePassStatic(NULL);
 
     for (i = 0; i < SAMPLES; i++) {
         if (callback) callback(i * 100 / SAMPLES);
         times[i] = RunOnePassStatic(&loops_done[i]);
         
-        /* If timed out, stop early */
+        
         if (loops_done[i] < BENCH_LOOPS) {
-             /* Calculate score based on THIS sample alone */
+             
              double time = times[i];
              double score;
              if (time < 0.001) time = 0.001;
@@ -271,18 +271,18 @@ DWORD RunSingleThreadBenchmark(BENCH_CALLBACK callback) {
     }
     if (callback) callback(100);
 
-    /* Sort and drop min/max */
+    
     qsort(times, SAMPLES, sizeof(double), CompareDouble);
     
-    /* Average middle 3 */
+    
     for (i = 1; i < SAMPLES - 1; i++) {
         total += times[i];
-        total_loops += BENCH_LOOPS; /* Since we verified completion */
+        total_loops += BENCH_LOOPS; 
     }
     
     {
         double avg_time = total / (SAMPLES - 2);
-        if (avg_time < 0.001) avg_time = 0.001; /* Prevent div by zero */
+        if (avg_time < 0.001) avg_time = 0.001; 
 
         /* 
          * CALCULATE NORMALIZED SCORE 
@@ -292,9 +292,9 @@ DWORD RunSingleThreadBenchmark(BENCH_CALLBACK callback) {
     }
 }
 
-/* --------------------------------------------------------- */
-/* Multi-Core Implementation */
-/* --------------------------------------------------------- */
+
+
+
 
 #ifdef _WIN32
 
@@ -307,7 +307,7 @@ typedef struct {
 DWORD WINAPI BenchThreadProc(LPVOID lpParam) {
     ThreadParams* params = (ThreadParams*)lpParam;
     
-    /* Allocate memory for this thread */
+    
     /* We must allocate dynamically because stack space per thread might be limited 
        and we can't use globals. */
     /* 2KB per array is small enough for stack on Win32 (1MB stack default), 
@@ -317,13 +317,13 @@ DWORD WINAPI BenchThreadProc(LPVOID lpParam) {
     params->ctx.temp = (NUMBER*)malloc(sizeof(NUMBER) * ARR_SIZE);
     
     if (!params->ctx.pi || !params->ctx.term || !params->ctx.temp) {
-        /* Allocation failed */
+        
         return 0;
     }
     
     params->loops_completed = DoBenchmarkWork(&params->ctx);
     
-    /* Free memory */
+    
     free(params->ctx.pi);
     free(params->ctx.term);
     free(params->ctx.temp);
@@ -352,32 +352,32 @@ DWORD RunMultiCoreBenchmark(BENCH_CALLBACK callback) {
     g_BenchTimedOut = 0;
     Timer_Start();
 
-    /* Launch threads */
+    
     for (i = 0; i < num_cores; i++) {
         params[i].thread_id = i;
-        /* CreateThread is Win32 API */
+        
         threads[i] = CreateThread(
-            NULL,               /* Default security */
-            0,                  /* Default stack size */
-            BenchThreadProc,    /* Thread function */
-            &params[i],         /* Argument */
-            0,                  /* Creation flags */
-            &thread_ids[i]      /* Thread ID */
+            NULL,               
+            0,                  
+            BenchThreadProc,    
+            &params[i],         
+            0,                  
+            &thread_ids[i]      
         );
         
         if (threads[i] == NULL) {
-            /* Handle error - maybe just continue with what we have or abort */
+            
         }
     }
     
-    /* Wait for all threads to complete */
-    if (callback) callback(50); /* Indiscriminate progress */
+    
+    if (callback) callback(50); 
     
     WaitForMultipleObjects(num_cores, threads, TRUE, INFINITE);
     
     Timer_Stop();
     
-    /* Cleanup handles and sum work */
+    
     for (i = 0; i < num_cores; i++) {
         CloseHandle(threads[i]);
         total_loops += params[i].loops_completed;
@@ -389,12 +389,12 @@ DWORD RunMultiCoreBenchmark(BENCH_CALLBACK callback) {
     
     if (callback) callback(100);
     
-    /* Return total time in milliseconds adjusted for work done */
-    /* If we did N jobs in T time, equivalent single core time is T / N */
-    total_time = Timer_GetElapsedMs();
-    if (total_time < 0.001) total_time = 0.001; /* Avoid div by zero */
     
-    /* Calculate Score: (Total Iterations across all Cores * Scale) / Duration */
+    
+    total_time = Timer_GetElapsedMs();
+    if (total_time < 0.001) total_time = 0.001; 
+    
+    
     {
         double score = ((double)total_loops * (double)BENCH_SCORE_SCALE) / total_time;
         return (DWORD)score;
@@ -403,10 +403,10 @@ DWORD RunMultiCoreBenchmark(BENCH_CALLBACK callback) {
 
 #else
 
-/* Win16 Fallback for MultiCore (Just run single core) */
+
 DWORD RunMultiCoreBenchmark(BENCH_CALLBACK callback) {
-    /* Since Single Thread already returns normalized score, just return it. */
-    /* Efficiency will be 100% since 1 core = 1 core */
+    
+    
     return RunSingleThreadBenchmark(callback);
 }
 

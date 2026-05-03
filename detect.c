@@ -6,12 +6,13 @@
 
 #include <windows.h>
 #include <stdio.h>
+#include <string.h>
 #include "detect.h"
 
 /* 
- * Detect CPU Vendor String 
- * Uses CPUID instruction for 32-bit/64-bit systems.
- * For 16-bit Win16, returns a placeholder (CPUID requires 386+ and proper mode handling).
+ * 获取 CPU 厂商字符串
+ * 在 32/64 位系统上使用 CPUID 指令。
+ * 在 16 位系统上通过标志位探测识别 8086-486。
  */
 void GetCPUVendor(char* vendor) {
     if (!vendor) return;
@@ -21,9 +22,8 @@ void GetCPUVendor(char* vendor) {
 #ifdef _WIN32
     {
         char buffer[13];
-        DWORD ebx_v, edx_v, ecx_v;
+        DWORD ebx_v = 0, edx_v = 0, ecx_v = 0;
         
-        /* Inline Assembly for MSVC/Watcom (32-bit) */
         _asm {
             push ebx
             mov eax, 0
@@ -41,8 +41,63 @@ void GetCPUVendor(char* vendor) {
         lstrcpy(vendor, buffer);
     }
 #else
-    /* Win16 Implementation */
-    lstrcpy(vendor, "Win16-CPU"); 
+    {
+        int cpu_type = 0;
+        _asm {
+            
+            push sp
+            pop ax
+            cmp ax, sp
+            jne is_8086
+            
+            
+            pushf
+            pop ax
+            or ax, 7000h
+            push ax
+            popf
+            pushf
+            pop ax
+            and ax, 7000h
+            jz is_286
+            
+            
+            db 66h, 9Ch                
+            db 66h, 58h                
+            db 66h, 8Bh, 0D8h          
+            db 66h, 35h, 00h, 00h, 04h, 00h 
+            db 66h, 50h                
+            db 66h, 9Dh                
+            db 66h, 9Ch                
+            db 66h, 58h                
+            db 66h, 53h                
+            db 66h, 9Dh                
+            db 66h, 3Bh, 0C3h          
+            je is_386
+            
+            mov cpu_type, 4
+            jmp done
+            
+        is_8086:
+            mov cpu_type, 0
+            jmp done
+        is_286:
+            mov cpu_type, 2
+            jmp done
+        is_386:
+            mov cpu_type, 3
+            
+        done:
+        }
+        
+        switch(cpu_type) {
+            case 0: lstrcpy(vendor, "Intel 8086/88"); break;
+            case 2: lstrcpy(vendor, "Intel 286"); break;
+            case 3: lstrcpy(vendor, "Intel 386"); break;
+            case 4: lstrcpy(vendor, "Intel 486+"); break;
+            default: lstrcpy(vendor, "x86 Compatible"); break;
+        }
+    }
 #endif
 }
 
@@ -54,57 +109,101 @@ void GetPlatformMode(char* mode) {
 #endif
 }
 
+#ifdef _WIN32
+typedef struct {
+    DWORD dwOSVersionInfoSize;
+    DWORD dwMajorVersion;
+    DWORD dwMinorVersion;
+    DWORD dwBuildNumber;
+    DWORD dwPlatformId;
+    WCHAR szCSDVersion[128];
+} MY_RTL_OSVERSIONINFOW;
+
+typedef LONG (WINAPI *fnRtlGetVersion)(MY_RTL_OSVERSIONINFOW*);
+#endif
+
 void GetSystemVersionString(char* ver_string) {
     if (!ver_string) return;
 
 #ifdef _WIN32
     {
-        OSVERSIONINFO osvi;
-        /* memset not always safely available without <string.h>, so we explicitly zero it */
-        osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-        osvi.dwMajorVersion = 0;
-        osvi.dwMinorVersion = 0;
-        osvi.dwBuildNumber = 0;
-        osvi.dwPlatformId = 0;
-        osvi.szCSDVersion[0] = '\0';
+        DWORD major = 0, minor = 0, build = 0;
+        BOOL got_version = FALSE;
+        HMODULE hNtdll = GetModuleHandle("ntdll.dll");
         
-        if (GetVersionEx(&osvi)) {
-            sprintf(ver_string, "Windows %lu.%lu (Build %lu)",
-                    (unsigned long)osvi.dwMajorVersion, 
-                    (unsigned long)osvi.dwMinorVersion, 
-                    (unsigned long)osvi.dwBuildNumber);
+        if (hNtdll) {
+            fnRtlGetVersion pRtlGetVersion = (fnRtlGetVersion)GetProcAddress(hNtdll, "RtlGetVersion");
+            if (pRtlGetVersion) {
+                MY_RTL_OSVERSIONINFOW rovi;
+                rovi.dwOSVersionInfoSize = sizeof(rovi);
+                if (pRtlGetVersion(&rovi) == 0) {
+                    major = rovi.dwMajorVersion;
+                    minor = rovi.dwMinorVersion;
+                    build = rovi.dwBuildNumber;
+                    got_version = TRUE;
+                }
+            }
+        }
+
+        if (!got_version) {
+            OSVERSIONINFO osvi;
+            osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4996)
+#endif
+            if (GetVersionEx(&osvi)) {
+                major = osvi.dwMajorVersion;
+                minor = osvi.dwMinorVersion;
+                build = osvi.dwBuildNumber;
+                got_version = TRUE;
+            }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+        }
+
+        if (got_version) {
+            const char* name = "Windows";
+            if (major == 10 && minor == 0) {
+                if (build >= 22000) name = "Windows 11";
+                else name = "Windows 10";
+            } else if (major == 6) {
+                if (minor == 3) name = "Windows 8.1";
+                else if (minor == 2) name = "Windows 8";
+                else if (minor == 1) name = "Windows 7";
+                else if (minor == 0) name = "Windows Vista";
+            } else if (major == 5) {
+                if (minor == 1) name = "Windows XP";
+                else if (minor == 2) name = "Windows XP/2003";
+                else if (minor == 0) name = "Windows 2000";
+            } else if (major == 4) {
+                if (build <= 1000) name = "Windows 95";
+                else name = "Windows 98/NT4";
+            }
+            sprintf(ver_string, "%s %lu.%lu (Build %lu)", name, major, minor, build);
         } else {
             DWORD dwVersion = GetVersion();
-            UINT uMajor = (UINT)(LOBYTE(LOWORD(dwVersion)));
-            UINT uMinor = (UINT)(HIBYTE(LOWORD(dwVersion)));
-            sprintf(ver_string, "Windows %u.%u", uMajor, uMinor);
+            sprintf(ver_string, "Windows %u.%u", (UINT)LOBYTE(LOWORD(dwVersion)), (UINT)HIBYTE(LOWORD(dwVersion)));
         }
     }
 #else
     {
-        /* Win16: GetVersion returns Windows version in low word, DOS version in high word */
         DWORD dwVersion = GetVersion();
-        UINT uMajor = (UINT)(LOBYTE(LOWORD(dwVersion)));
-        UINT uMinor = (UINT)(HIBYTE(LOWORD(dwVersion)));
-        
+        UINT uMajor = (UINT)LOBYTE(LOWORD(dwVersion));
+        UINT uMinor = (UINT)HIBYTE(LOWORD(dwVersion));
         WORD dos_ver = HIWORD(dwVersion);
-        /* Note: For DOS version, major is in HIBYTE, minor in LOBYTE. */
-        sprintf(ver_string, "Windows %u.%u (DOS %u.%u)",
-                uMajor, uMinor,
-                (UINT)HIBYTE(dos_ver), (UINT)LOBYTE(dos_ver));
+        sprintf(ver_string, "Windows %u.%u (DOS %u.%u)", uMajor, uMinor, (UINT)HIBYTE(dos_ver), (UINT)LOBYTE(dos_ver));
     }
 #endif
 }
 
 void GetProcessBitnessString(char* bitness) {
     if (!bitness) return;
-
-#ifdef _WIN32
-    if (sizeof(void*) == 8) {
-        lstrcpy(bitness, "64-bit");
-    } else {
-        lstrcpy(bitness, "32-bit");
-    }
+#if defined(_WIN64)
+    lstrcpy(bitness, "64-bit");
+#elif defined(_WIN32)
+    lstrcpy(bitness, "32-bit");
 #else
     lstrcpy(bitness, "16-bit");
 #endif
@@ -112,10 +211,7 @@ void GetProcessBitnessString(char* bitness) {
 
 void GetCPUFeatures(char* features) {
 #ifdef _WIN32
-    DWORD edx_val = 0;
-    DWORD ecx_val = 0;
-    DWORD ebx_val_7 = 0;
-    
+    DWORD edx_val = 0, ecx_val = 0, ebx_val_7 = 0;
     _asm {
         push ebx
         mov eax, 1
@@ -123,12 +219,6 @@ void GetCPUFeatures(char* features) {
         mov edx_val, edx
         mov ecx_val, ecx
         pop ebx
-    }
-    
-    /* Check for Leaf 7 Support (if Max Leaf >= 7) */
-    /* Assumed present on modern CPUs, but strictly should check leaf 0 first */
-    
-    _asm {
         push ebx
         mov eax, 7
         mov ecx, 0
@@ -136,36 +226,16 @@ void GetCPUFeatures(char* features) {
         mov ebx_val_7, ebx
         pop ebx
     }
-    
     lstrcpy(features, "");
-    
-    /* EDX Bit 23: MMX */
     if (edx_val & 0x00800000) lstrcat(features, "MMX ");
-    
-    /* EDX Bit 25: SSE */
     if (edx_val & 0x02000000) lstrcat(features, "SSE ");
-    
-    /* EDX Bit 26: SSE2 */
     if (edx_val & 0x04000000) lstrcat(features, "SSE2 ");
-    
-    /* ECX Bit 0: SSE3 */
     if (ecx_val & 0x00000001) lstrcat(features, "SSE3 ");
-    
-    /* ECX Bit 19: SSE4.1 */
     if (ecx_val & 0x00080000) lstrcat(features, "SSE4.1 ");
-    
-    /* ECX Bit 20: SSE4.2 */
     if (ecx_val & 0x00100000) lstrcat(features, "SSE4.2 ");
-    
-    /* ECX Bit 28: AVX */
     if (ecx_val & 0x10000000) lstrcat(features, "AVX ");
-    
-    /* EBX(Leaf 7) Bit 5: AVX2 */
     if (ebx_val_7 & 0x00000020) lstrcat(features, "AVX2 ");
-
-    /* EBX(Leaf 7) Bit 16: AVX512F */
     if (ebx_val_7 & 0x00010000) lstrcat(features, "AVX512 ");
-    
     if (lstrlen(features) == 0) lstrcpy(features, "Standard x86");
 #else
     lstrcpy(features, "x87 FPU (Simulated)");
@@ -176,7 +246,7 @@ int GetCPUCount(void) {
 #ifdef _WIN32
     SYSTEM_INFO si;
     GetSystemInfo(&si);
-    return si.dwNumberOfProcessors;
+    return (int)si.dwNumberOfProcessors;
 #else
     return 1;
 #endif
@@ -185,140 +255,96 @@ int GetCPUCount(void) {
 void GetCPUBrandString(char* brand) {
     if (!brand) return;
     lstrcpy(brand, "");
-
 #ifdef _WIN32
     {
-        /* Check extended CPUID support */
         DWORD max_ext = 0;
         char buffer[65];
         char* p = buffer;
-        DWORD eax_v, ebx_v, ecx_v, edx_v;
-        
+        DWORD eax_v = 0, ebx_v = 0, ecx_v = 0, edx_v = 0;
         _asm {
             mov eax, 0x80000000
             cpuid
             mov max_ext, eax
         }
-        
         if (max_ext >= 0x80000004) {
-             /* Part 1: 80000002 */
-             _asm {
-                 push ebx
-                 mov eax, 0x80000002
-                 cpuid
-                 mov eax_v, eax
-                 mov ebx_v, ebx
-                 mov ecx_v, ecx
-                 mov edx_v, edx
-                 pop ebx
-             }
-             memcpy(buffer, &eax_v, 4);
-             memcpy(buffer+4, &ebx_v, 4);
-             memcpy(buffer+8, &ecx_v, 4);
-             memcpy(buffer+12, &edx_v, 4);
-
-             /* Part 2: 80000003 */
-             _asm {
-                 push ebx
-                 mov eax, 0x80000003
-                 cpuid
-                 mov eax_v, eax
-                 mov ebx_v, ebx
-                 mov ecx_v, ecx
-                 mov edx_v, edx
-                 pop ebx
-             }
-             memcpy(buffer+16, &eax_v, 4);
-             memcpy(buffer+20, &ebx_v, 4);
-             memcpy(buffer+24, &ecx_v, 4);
-             memcpy(buffer+28, &edx_v, 4);
-            
-             /* Part 3: 80000004 */
-             _asm {
-                 push ebx
-                 mov eax, 0x80000004
-                 cpuid
-                 mov eax_v, eax
-                 mov ebx_v, ebx
-                 mov ecx_v, ecx
-                 mov edx_v, edx
-                 pop ebx
-             }
-             memcpy(buffer+32, &eax_v, 4);
-             memcpy(buffer+36, &ebx_v, 4);
-             memcpy(buffer+40, &ecx_v, 4);
-             memcpy(buffer+44, &edx_v, 4);
-
-            buffer[48] = '\0'; /* Ensure termination */
-            
-            /* Trim leading spaces */
+            int i;
+            for (i = 0; i < 3; i++) {
+                _asm {
+                    push ebx
+                    mov eax, 0x80000002
+                    add eax, i
+                    cpuid
+                    mov eax_v, eax
+                    mov ebx_v, ebx
+                    mov ecx_v, ecx
+                    mov edx_v, edx
+                    pop ebx
+                }
+                memcpy(buffer + (i * 16), &eax_v, 4);
+                memcpy(buffer + (i * 16) + 4, &ebx_v, 4);
+                memcpy(buffer + (i * 16) + 8, &ecx_v, 4);
+                memcpy(buffer + (i * 16) + 12, &edx_v, 4);
+            }
+            buffer[48] = '\0';
             while (*p == ' ') p++;
             lstrcpy(brand, p);
         } else {
-            lstrcpy(brand, "Standard x86 Processor");
+            int family, model;
+            DWORD eax_v_1 = 0;
+            char vendor[13];
+            GetCPUVendor(vendor);
+            _asm {
+                mov eax, 1
+                cpuid
+                mov eax_v_1, eax
+            }
+            family = (int)((eax_v_1 >> 8) & 0xF);
+            model = (int)((eax_v_1 >> 4) & 0xF);
+            if (family == 4) lstrcpy(brand, "Generic 486 Class");
+            else if (family == 5) {
+                if (lstrcmp(vendor, "AuthenticAMD") == 0) lstrcpy(brand, "AMD K5/K6 Class");
+                else lstrcpy(brand, "Intel Pentium Class");
+            } else if (family == 6) {
+                if (lstrcmp(vendor, "AuthenticAMD") == 0) lstrcpy(brand, "AMD Athlon/Duron Class");
+                else lstrcpy(brand, "Intel Pentium Pro/II/III Class");
+            } else lstrcpy(brand, "Legacy x86 Processor");
         }
     }
 #else
-    lstrcpy(brand, "Standard 386/486");
+    GetCPUVendor(brand);
 #endif
 }
+
 void GetCPUSignatureString(char* sig) {
     if (!sig) return;
     lstrcpy(sig, "");
-
 #ifdef _WIN32
     {
         DWORD eax_v = 0;
         int family, model, stepping;
         char arch[64];
         char vendor[13];
-
         _asm {
             mov eax, 1
             cpuid
             mov eax_v, eax
         }
-        
         GetCPUVendor(vendor);
-
-        stepping = eax_v & 0xF;
-        model = (eax_v >> 4) & 0xF;
-        family = (eax_v >> 8) & 0xF;
-
-        if (family == 0xF || family == 0x6) {
-            model += ((eax_v >> 16) & 0xF) << 4;
-        }
-        if (family == 0xF) {
-            family += (eax_v >> 20) & 0xFF;
-        }
-
+        stepping = (int)(eax_v & 0xF);
+        model = (int)((eax_v >> 4) & 0xF);
+        family = (int)((eax_v >> 8) & 0xF);
+        if (family == 0xF || family == 0x6) model += ((int)((eax_v >> 16) & 0xF)) << 4;
+        if (family == 0xF) family += (int)((eax_v >> 20) & 0xFF);
         lstrcpy(arch, "");
-
-        /* Basic heuristic for some popular archs */
         if (lstrcmp(vendor, "GenuineIntel") == 0) {
             if (family == 6) {
-                if (model == 0x5E || model == 0x4E) lstrcpy(arch, "Skylake ");
-                else if (model == 0x8E || model == 0x9E) lstrcpy(arch, "Kaby Lake ");
-                else if (model == 0xA5 || model == 0xA6) lstrcpy(arch, "Comet Lake ");
-                else if (model == 0x97 || model == 0x9A) lstrcpy(arch, "Alder Lake ");
-                else if (model == 0xB7 || model == 0xBA) lstrcpy(arch, "Raptor Lake ");
-                else if (model == 0x5C || model == 0x5F) lstrcpy(arch, "Goldmont ");
-                else if (model == 0x7E || model == 0x7D) lstrcpy(arch, "Ice Lake ");
-            }
-        } else if (lstrcmp(vendor, "AuthenticAMD") == 0) {
-            if (family == 0x17) {
-                if (model >= 0x01 && model <= 0x0F) lstrcpy(arch, "Zen / Zen+ ");
-                else if (model >= 0x31 && model <= 0x3F) lstrcpy(arch, "Zen 2 ");
-                else if (model >= 0x71 && model <= 0x7F) lstrcpy(arch, "Zen 2 ");
-            } else if (family == 0x19) {
-                if (model >= 0x01 && model <= 0x0F) lstrcpy(arch, "Zen 3 ");
-                else if (model >= 0x21 && model <= 0x2F) lstrcpy(arch, "Zen 3 ");
-                else if (model >= 0x61 && model <= 0x6F) lstrcpy(arch, "Zen 4 ");
-                else if (model >= 0x41 && model <= 0x4F) lstrcpy(arch, "Zen 4 ");
+                if (model == 0x5E || model == 0x4E) lstrcpy(arch, "Skylake");
+                else if (model == 0x8E || model == 0x9E) lstrcpy(arch, "Kaby Lake");
+                else if (model == 0xA5 || model == 0xA6) lstrcpy(arch, "Comet Lake");
+                else if (model == 0x97 || model == 0x9A) lstrcpy(arch, "Alder Lake");
             }
         }
-
-        sprintf(sig, "Family %x, Model %x, Stepping %x %s", family, model, stepping, (arch[0] != '\0') ? arch : "");
+        sprintf(sig, "Family %x, Model %x, Stepping %x %s", family, model, stepping, arch);
     }
 #else
     lstrcpy(sig, "N/A (16-bit)");
@@ -327,17 +353,13 @@ void GetCPUSignatureString(char* sig) {
 
 void GetCPUCacheString(char* cacheStr) {
     if (!cacheStr) return;
-    lstrcpy(cacheStr, "");
-
+    lstrcpy(cacheStr, "N/A");
 #ifdef _WIN32
     {
-        /* Simple AMD L2/L3 check (Leaf 0x80000006) */
         char vendor[13];
         GetCPUVendor(vendor);
-
         if (lstrcmp(vendor, "AuthenticAMD") == 0) {
-            DWORD ecx_v = 0, edx_v = 0;
-            DWORD max_ext = 0;
+            DWORD ecx_v = 0, edx_v = 0, max_ext = 0;
             _asm {
                 mov eax, 0x80000000
                 cpuid
@@ -350,13 +372,9 @@ void GetCPUCacheString(char* cacheStr) {
                     mov ecx_v, ecx
                     mov edx_v, edx
                 }
-                sprintf(cacheStr, "L2: %d KB, L3: %d MB", (ecx_v >> 16) & 0xFFFF, ((edx_v >> 18) & 0x3FFF) / 2);
-            } else {
-                lstrcpy(cacheStr, "Unknown AMD Caches");
+                sprintf(cacheStr, "L2:%dKB, L3:%dMB", (int)((ecx_v >> 16) & 0xFFFF), (int)(((edx_v >> 18) & 0x3FFF) / 2));
             }
-        } 
-        else if (lstrcmp(vendor, "GenuineIntel") == 0) {
-            /* Intel Leaf 4 processing is complex. As a simplified approach for legacy compat, we query leaf 4. */
+        } else if (lstrcmp(vendor, "GenuineIntel") == 0) {
             DWORD max_leaf = 0;
             _asm {
                 mov eax, 0
@@ -364,14 +382,10 @@ void GetCPUCacheString(char* cacheStr) {
                 mov max_leaf, eax
             }
             if (max_leaf >= 4) {
-                 /* Read L1/L2/L3 by iterating leaf 4 */
-                 int cacheLevel, sizeKB;
-                 DWORD eax_v, ebx_v, ecx_v;
-                 int ways, parts, lines, sets;
-                 int c = 0;
-                 char buf[64];
-                 lstrcpy(cacheStr, "");
-                 while (c < 4) {
+                int c = 0;
+                lstrcpy(cacheStr, "");
+                while (c < 4) {
+                    DWORD eax_v = 0, ebx_v = 0, ecx_v = 0;
                     _asm {
                         push ebx
                         mov eax, 4
@@ -382,30 +396,27 @@ void GetCPUCacheString(char* cacheStr) {
                         mov ecx_v, ecx
                         pop ebx
                     }
-                    if ((eax_v & 0x1F) == 0) break; /* No more caches */
-                    cacheLevel = (eax_v >> 5) & 0x7;
-                    ways = ((ebx_v >> 22) & 0x3FF) + 1;
-                    parts = ((ebx_v >> 12) & 0x3FF) + 1;
-                    lines = (ebx_v & 0xFFF) + 1;
-                    sets = ecx_v + 1;
-                    sizeKB = (ways * parts * lines * sets) / 1024;
-                    sprintf(buf, "L%d:%dKB ", cacheLevel, sizeKB);
-                    lstrcat(cacheStr, buf);
+                    if ((eax_v & 0x1F) == 0) break;
+                    {
+                        int level = (int)((eax_v >> 5) & 0x7);
+                        int ways = (int)(((ebx_v >> 22) & 0x3FF) + 1);
+                        int parts = (int)(((ebx_v >> 12) & 0x3FF) + 1);
+                        int lines = (int)((ebx_v & 0xFFF) + 1);
+                        int sets = (int)(ecx_v + 1);
+                        char buf[32];
+                        sprintf(buf, "L%d:%dKB ", level, (ways * parts * lines * sets) / 1024);
+                        lstrcat(cacheStr, buf);
+                    }
                     c++;
-                 }
-            } else {
-                 lstrcpy(cacheStr, "Unknown Intel Caches");
+                }
             }
-        } else {
-            lstrcpy(cacheStr, "Unknown Cache info");
         }
     }
-#else
-    lstrcpy(cacheStr, "N/A (16-bit)");
 #endif
 }
+
 #ifdef _WIN32
-typedef struct RawSMBIOSData_s {
+typedef struct {
     BYTE Used20CallingMethod;
     BYTE SMBIOSMajorVersion;
     BYTE SMBIOSMinorVersion;
@@ -414,7 +425,7 @@ typedef struct RawSMBIOSData_s {
     BYTE SMBIOSTableData[1];
 } RawSMBIOSData;
 
-typedef struct SMBIOSHeader_s {
+typedef struct {
     BYTE Type;
     BYTE Length;
     WORD Handle;
@@ -429,7 +440,6 @@ const char* GetSMBIOSString(SMBIOSHeader* header, BYTE index) {
     }
     return str;
 }
-
 typedef UINT (WINAPI * GETSYSTEMFIRMWARETABLE)(DWORD, DWORD, PVOID, DWORD);
 #endif
 
@@ -438,41 +448,29 @@ void GetMotherboardInfo(char* outBuf) {
     lstrcpy(outBuf, "N/A");
 #ifdef _WIN32
     {
-        HMODULE hKernel32 = GetModuleHandle("kernel32.dll");
-        GETSYSTEMFIRMWARETABLE pGetSystemFirmwareTable = NULL;
-        if (hKernel32) {
-            pGetSystemFirmwareTable = (GETSYSTEMFIRMWARETABLE)GetProcAddress(hKernel32, "GetSystemFirmwareTable");
-        }
-        if (pGetSystemFirmwareTable) {
-            DWORD size = 0;
-            DWORD signature = 'RSMB';
-            size = pGetSystemFirmwareTable(signature, 0, NULL, 0);
+        HMODULE hK32 = GetModuleHandle("kernel32.dll");
+        GETSYSTEMFIRMWARETABLE pGSFT = (GETSYSTEMFIRMWARETABLE)GetProcAddress(hK32, "GetSystemFirmwareTable");
+        if (pGSFT) {
+            DWORD size = pGSFT('RSMB', 0, NULL, 0);
             if (size > 0) {
-                RawSMBIOSData* smbiosData = (RawSMBIOSData*)GlobalAlloc(GPTR, size);
-                if (smbiosData) {
+                RawSMBIOSData* data = (RawSMBIOSData*)GlobalAlloc(GPTR, size);
+                if (data) {
                     BYTE* p;
                     BYTE* end;
-                    
-                    pGetSystemFirmwareTable(signature, 0, smbiosData, size);
-                    
-                    p = smbiosData->SMBIOSTableData;
-                    end = p + smbiosData->Length;
-                    
+                    pGSFT('RSMB', 0, data, size);
+                    p = data->SMBIOSTableData;
+                    end = p + data->Length;
                     while (p < end) {
-                        SMBIOSHeader* header = (SMBIOSHeader*)p;
-                        if (header->Type == 2) { 
-                            const char* manufacturer = GetSMBIOSString(header, *((BYTE*)header + 4));
-                            const char* product = GetSMBIOSString(header, *((BYTE*)header + 5));
-                            sprintf(outBuf, "%s %s", manufacturer, product);
+                        SMBIOSHeader* h = (SMBIOSHeader*)p;
+                        if (h->Type == 2) {
+                            sprintf(outBuf, "%s %s", GetSMBIOSString(h, *((BYTE*)h + 4)), GetSMBIOSString(h, *((BYTE*)h + 5)));
                             break;
                         }
-                        p += header->Length;
-                        while (*p || *(p + 1)) {
-                            p++;
-                        }
+                        p += h->Length;
+                        while (*p || *(p + 1)) p++;
                         p += 2;
                     }
-                    GlobalFree(smbiosData);
+                    GlobalFree(data);
                 }
             }
         }
@@ -480,120 +478,74 @@ void GetMotherboardInfo(char* outBuf) {
 #endif
 }
 
-    #ifndef _WIN32
-    /*
-     * Win16 fallback memory query (INT 15h, AH=88h).
-     * Returns extended memory above 1MB in KB via AX.
-     */
-    static void GetWin16Memory(char* outBuf) {
-        unsigned int extended_mem_kb = 0;
-
-        if (!outBuf) return;
-
-        _asm {
-            mov ah, 88h
-            int 15h
-            jc mem_query_fail
-            xor ah, ah
-            mov extended_mem_kb, ax
-            jmp mem_query_done
-
-        mem_query_fail:
-            mov extended_mem_kb, 0
-
-        mem_query_done:
-        }
-
-        if (extended_mem_kb > 0) {
-            sprintf(outBuf, "%u MB", (extended_mem_kb / 1024U) + 1U);
-        } else {
-            lstrcpy(outBuf, "N/A");
-        }
+#ifndef _WIN32
+static void GetWin16Memory(char* outBuf) {
+    unsigned int kb = 0;
+    _asm {
+        mov ah, 88h
+        int 15h
+        jc fail
+        mov kb, ax
+        jmp ok
+    fail:
+        mov kb, 0
+    ok:
     }
-    #endif
+    if (kb > 0) sprintf(outBuf, "%u MB", (kb / 1024U) + 1U);
+    else lstrcpy(outBuf, "N/A");
+}
+#endif
 
 void GetMemoryInfo(char* outBuf) {
     if (!outBuf) return;
     lstrcpy(outBuf, "N/A");
 #ifdef _WIN32
     {
-            int gotMemory = 0;
-        HMODULE hKernel32 = GetModuleHandle("kernel32.dll");
-        GETSYSTEMFIRMWARETABLE pGetSystemFirmwareTable = NULL;
-        if (hKernel32) {
-            pGetSystemFirmwareTable = (GETSYSTEMFIRMWARETABLE)GetProcAddress(hKernel32, "GetSystemFirmwareTable");
-        }
-        if (pGetSystemFirmwareTable) {
-            DWORD size = 0;
-            DWORD signature = 'RSMB';
-            size = pGetSystemFirmwareTable(signature, 0, NULL, 0);
+        int done = 0;
+        HMODULE hK32 = GetModuleHandle("kernel32.dll");
+        GETSYSTEMFIRMWARETABLE pGSFT = (GETSYSTEMFIRMWARETABLE)GetProcAddress(hK32, "GetSystemFirmwareTable");
+        if (pGSFT) {
+            DWORD size = pGSFT('RSMB', 0, NULL, 0);
             if (size > 0) {
-                RawSMBIOSData* smbiosData = (RawSMBIOSData*)GlobalAlloc(GPTR, size);
-                if (smbiosData) {
-                    BYTE* p;
-                    BYTE* end;
-                    DWORD totalMemMB = 0;
-                    DWORD speed = 0;
-                    
-                    pGetSystemFirmwareTable(signature, 0, smbiosData, size);
-                    
-                    p = smbiosData->SMBIOSTableData;
-                    end = p + smbiosData->Length;
-                    
+                RawSMBIOSData* data = (RawSMBIOSData*)GlobalAlloc(GPTR, size);
+                if (data) {
+                    BYTE *p, *end;
+                    DWORD total = 0, speed = 0;
+                    pGSFT('RSMB', 0, data, size);
+                    p = data->SMBIOSTableData;
+                    end = p + data->Length;
                     while (p < end) {
-                        SMBIOSHeader* header = (SMBIOSHeader*)p;
-                        if (header->Type == 17) {
-                            WORD memSize = *((WORD*)((BYTE*)header + 12));
-                            WORD memSpeed = 0;
-
-                            if (header->Length > 21) {
-                                memSpeed = *((WORD*)((BYTE*)header + 21));
+                        SMBIOSHeader* h = (SMBIOSHeader*)p;
+                        if (h->Type == 17) {
+                            WORD mS = *((WORD*)((BYTE*)h + 12));
+                            if (mS > 0 && mS != 0xFFFF) {
+                                if (mS == 0x7FFF && h->Length >= 0x20) total += *((DWORD*)((BYTE*)h + 0x1C));
+                                else if (mS & 0x8000) total += ((DWORD)(mS & 0x7FFF) + 1023) / 1024;
+                                else total += (DWORD)mS;
                             }
-                            
-                            if (memSize > 0 && memSize != 0xFFFF) {
-                                if (memSize == 0x7FFF && header->Length >= 0x20) {
-                                    DWORD extSizeMB = *((DWORD*)((BYTE*)header + 0x1C));
-                                    totalMemMB += extSizeMB;
-                                } else if (memSize & 0x8000) {
-                                    /* Bit15=1 means value is in KB. Convert to MB. */
-                                    DWORD kb = (DWORD)(memSize & 0x7FFF);
-                                    totalMemMB += (kb + 1023UL) / 1024UL;
-                                } else {
-                                    /* Bit15=0 means value is in MB. */
-                                    totalMemMB += (DWORD)memSize;
-                                }
-                            }
-                            if (memSpeed > 0 && memSpeed != 0xFFFF) {
-                                 speed = memSpeed;
-                            }
+                            if (h->Length > 21) speed = *((WORD*)((BYTE*)h + 21));
                         }
-                        p += header->Length;
-                        while (*p || *(p + 1)) {
-                            p++;
-                        }
+                        p += h->Length;
+                        while (*p || *(p + 1)) p++;
                         p += 2;
                     }
-                    
-                    if (totalMemMB > 0) {
-                        sprintf(outBuf, "%lu MB, %lu MHz", totalMemMB, speed);
-                                            gotMemory = 1;
+                    if (total > 0) {
+                        sprintf(outBuf, "%lu MB, %lu MHz", total, speed);
+                        done = 1;
                     }
-                    GlobalFree(smbiosData);
+                    GlobalFree(data);
                 }
             }
         }
-
-                            if (!gotMemory) {
-                                MEMORYSTATUS ms;
-                                ms.dwLength = sizeof(MEMORYSTATUS);
-                                GlobalMemoryStatus(&ms);
-                                if (ms.dwTotalPhys > 0) {
-                                    sprintf(outBuf, "%lu MB", (unsigned long)(ms.dwTotalPhys / (1024UL * 1024UL)));
-                                }
-                            }
+        if (!done) {
+            MEMORYSTATUS ms;
+            ms.dwLength = sizeof(ms);
+            GlobalMemoryStatus(&ms);
+            sprintf(outBuf, "%lu MB", (unsigned long)(ms.dwTotalPhys / (1024UL * 1024UL)));
+        }
     }
-                    #else
-                        GetWin16Memory(outBuf);
+#else
+    GetWin16Memory(outBuf);
 #endif
 }
 
@@ -602,41 +554,28 @@ void GetBIOSInfo(char* outBuf) {
     lstrcpy(outBuf, "N/A");
 #ifdef _WIN32
     {
-        HMODULE hKernel32 = GetModuleHandle("kernel32.dll");
-        GETSYSTEMFIRMWARETABLE pGetSystemFirmwareTable = NULL;
-        if (hKernel32) {
-            pGetSystemFirmwareTable = (GETSYSTEMFIRMWARETABLE)GetProcAddress(hKernel32, "GetSystemFirmwareTable");
-        }
-        if (pGetSystemFirmwareTable) {
-            DWORD size = 0;
-            DWORD signature = 'RSMB';
-            size = pGetSystemFirmwareTable(signature, 0, NULL, 0);
+        HMODULE hK32 = GetModuleHandle("kernel32.dll");
+        GETSYSTEMFIRMWARETABLE pGSFT = (GETSYSTEMFIRMWARETABLE)GetProcAddress(hK32, "GetSystemFirmwareTable");
+        if (pGSFT) {
+            DWORD size = pGSFT('RSMB', 0, NULL, 0);
             if (size > 0) {
-                RawSMBIOSData* smbiosData = (RawSMBIOSData*)GlobalAlloc(GPTR, size);
-                if (smbiosData) {
-                    BYTE* p;
-                    BYTE* end;
-
-                    pGetSystemFirmwareTable(signature, 0, smbiosData, size);
-
-                    p = smbiosData->SMBIOSTableData;
-                    end = p + smbiosData->Length;
-
+                RawSMBIOSData* data = (RawSMBIOSData*)GlobalAlloc(GPTR, size);
+                if (data) {
+                    BYTE *p, *end;
+                    pGSFT('RSMB', 0, data, size);
+                    p = data->SMBIOSTableData;
+                    end = p + data->Length;
                     while (p < end) {
-                        SMBIOSHeader* header = (SMBIOSHeader*)p;
-                        if (header->Type == 0) {
-                            const char* vendor = GetSMBIOSString(header, *((BYTE*)header + 4));
-                            const char* version = GetSMBIOSString(header, *((BYTE*)header + 5));
-                            sprintf(outBuf, "%s %s", vendor, version);
+                        SMBIOSHeader* h = (SMBIOSHeader*)p;
+                        if (h->Type == 0) {
+                            sprintf(outBuf, "%s %s", GetSMBIOSString(h, *((BYTE*)h + 4)), GetSMBIOSString(h, *((BYTE*)h + 5)));
                             break;
                         }
-                        p += header->Length;
-                        while (*p || *(p + 1)) {
-                            p++;
-                        }
+                        p += h->Length;
+                        while (*p || *(p + 1)) p++;
                         p += 2;
                     }
-                    GlobalFree(smbiosData);
+                    GlobalFree(data);
                 }
             }
         }
