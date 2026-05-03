@@ -7,11 +7,7 @@
 #include <windows.h>
 #include "timer.h"
 
-/* 
- * Timer Implementation
- * Win32: QueryPerformanceCounter (Resolution < 1us)
- * Win16: GetTickCount (Resolution ~15ms - 55ms)
- */
+
 
 #ifdef _WIN32
 

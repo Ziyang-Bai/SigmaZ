@@ -7,13 +7,12 @@
 #include <windows.h>
 #include <stdio.h>
 #include <string.h>
+#ifdef _WIN64
+#include <intrin.h>
+#endif
 #include "detect.h"
 
-/* 
- * 获取 CPU 厂商字符串
- * 在 32/64 位系统上使用 CPUID 指令。
- * 在 16 位系统上通过标志位探测识别 8086-486。
- */
+
 void GetCPUVendor(char* vendor) {
     if (!vendor) return;
     
@@ -22,6 +21,13 @@ void GetCPUVendor(char* vendor) {
 #ifdef _WIN32
     {
         char buffer[13];
+#ifdef _WIN64
+        int cpuInfo[4];
+        __cpuid(cpuInfo, 0);
+        memcpy(buffer, &cpuInfo[1], 4);     
+        memcpy(buffer+4, &cpuInfo[3], 4);   
+        memcpy(buffer+8, &cpuInfo[2], 4);   
+#else
         DWORD ebx_v = 0, edx_v = 0, ecx_v = 0;
         
         _asm {
@@ -37,6 +43,7 @@ void GetCPUVendor(char* vendor) {
         memcpy(buffer, &ebx_v, 4);
         memcpy(buffer+4, &edx_v, 4);
         memcpy(buffer+8, &ecx_v, 4);
+#endif
         buffer[12] = '\0';
         lstrcpy(vendor, buffer);
     }
@@ -211,6 +218,15 @@ void GetProcessBitnessString(char* bitness) {
 
 void GetCPUFeatures(char* features) {
 #ifdef _WIN32
+#ifdef _WIN64
+    int cpuInfo1[4] = {0}, cpuInfo7[4] = {0};
+    DWORD edx_val = 0, ecx_val = 0, ebx_val_7 = 0;
+    __cpuid(cpuInfo1, 1);
+    edx_val = cpuInfo1[3];
+    ecx_val = cpuInfo1[2];
+    __cpuidex(cpuInfo7, 7, 0);
+    ebx_val_7 = cpuInfo7[1];
+#else
     DWORD edx_val = 0, ecx_val = 0, ebx_val_7 = 0;
     _asm {
         push ebx
@@ -226,6 +242,7 @@ void GetCPUFeatures(char* features) {
         mov ebx_val_7, ebx
         pop ebx
     }
+#endif
     lstrcpy(features, "");
     if (edx_val & 0x00800000) lstrcat(features, "MMX ");
     if (edx_val & 0x02000000) lstrcat(features, "SSE ");
@@ -261,14 +278,28 @@ void GetCPUBrandString(char* brand) {
         char buffer[65];
         char* p = buffer;
         DWORD eax_v = 0, ebx_v = 0, ecx_v = 0, edx_v = 0;
+#ifdef _WIN64
+        int cpuInfo[4];
+        __cpuid(cpuInfo, 0x80000000);
+        max_ext = cpuInfo[0];
+#else
         _asm {
             mov eax, 0x80000000
             cpuid
             mov max_ext, eax
         }
+#endif
         if (max_ext >= 0x80000004) {
             int i;
             for (i = 0; i < 3; i++) {
+#ifdef _WIN64
+                int cpuInfo[4];
+                __cpuid(cpuInfo, 0x80000002 + i);
+                eax_v = cpuInfo[0];
+                ebx_v = cpuInfo[1];
+                ecx_v = cpuInfo[2];
+                edx_v = cpuInfo[3];
+#else
                 _asm {
                     push ebx
                     mov eax, 0x80000002
@@ -280,6 +311,7 @@ void GetCPUBrandString(char* brand) {
                     mov edx_v, edx
                     pop ebx
                 }
+#endif
                 memcpy(buffer + (i * 16), &eax_v, 4);
                 memcpy(buffer + (i * 16) + 4, &ebx_v, 4);
                 memcpy(buffer + (i * 16) + 8, &ecx_v, 4);
@@ -293,11 +325,17 @@ void GetCPUBrandString(char* brand) {
             DWORD eax_v_1 = 0;
             char vendor[13];
             GetCPUVendor(vendor);
+#ifdef _WIN64
+            int cpuInfo1[4];
+            __cpuid(cpuInfo1, 1);
+            eax_v_1 = cpuInfo1[0];
+#else
             _asm {
                 mov eax, 1
                 cpuid
                 mov eax_v_1, eax
             }
+#endif
             family = (int)((eax_v_1 >> 8) & 0xF);
             model = (int)((eax_v_1 >> 4) & 0xF);
             if (family == 4) lstrcpy(brand, "Generic 486 Class");
@@ -324,11 +362,17 @@ void GetCPUSignatureString(char* sig) {
         int family, model, stepping;
         char arch[64];
         char vendor[13];
+#ifdef _WIN64
+        int cpuInfo[4];
+        __cpuid(cpuInfo, 1);
+        eax_v = cpuInfo[0];
+#else
         _asm {
             mov eax, 1
             cpuid
             mov eax_v, eax
         }
+#endif
         GetCPUVendor(vendor);
         stepping = (int)(eax_v & 0xF);
         model = (int)((eax_v >> 4) & 0xF);
@@ -360,32 +404,58 @@ void GetCPUCacheString(char* cacheStr) {
         GetCPUVendor(vendor);
         if (lstrcmp(vendor, "AuthenticAMD") == 0) {
             DWORD ecx_v = 0, edx_v = 0, max_ext = 0;
+#ifdef _WIN64
+            int cpuInfo[4];
+            __cpuid(cpuInfo, 0x80000000);
+            max_ext = cpuInfo[0];
+#else
             _asm {
                 mov eax, 0x80000000
                 cpuid
                 mov max_ext, eax
             }
+#endif
             if (max_ext >= 0x80000006) {
+#ifdef _WIN64
+                int cpuInfo[4];
+                __cpuid(cpuInfo, 0x80000006);
+                ecx_v = cpuInfo[2];
+                edx_v = cpuInfo[3];
+#else
                 _asm {
                     mov eax, 0x80000006
                     cpuid
                     mov ecx_v, ecx
                     mov edx_v, edx
                 }
+#endif
                 sprintf(cacheStr, "L2:%dKB, L3:%dMB", (int)((ecx_v >> 16) & 0xFFFF), (int)(((edx_v >> 18) & 0x3FFF) / 2));
             }
         } else if (lstrcmp(vendor, "GenuineIntel") == 0) {
             DWORD max_leaf = 0;
+#ifdef _WIN64
+            int cpuInfo[4];
+            __cpuid(cpuInfo, 0);
+            max_leaf = cpuInfo[0];
+#else
             _asm {
                 mov eax, 0
                 cpuid
                 mov max_leaf, eax
             }
+#endif
             if (max_leaf >= 4) {
                 int c = 0;
                 lstrcpy(cacheStr, "");
                 while (c < 4) {
                     DWORD eax_v = 0, ebx_v = 0, ecx_v = 0;
+#ifdef _WIN64
+                    int cpuInfo[4];
+                    __cpuid(cpuInfo, 4);
+                    eax_v = cpuInfo[0];
+                    ebx_v = cpuInfo[1];
+                    ecx_v = cpuInfo[2];
+#else
                     _asm {
                         push ebx
                         mov eax, 4
@@ -396,6 +466,7 @@ void GetCPUCacheString(char* cacheStr) {
                         mov ecx_v, ecx
                         pop ebx
                     }
+#endif
                     if ((eax_v & 0x1F) == 0) break;
                     {
                         int level = (int)((eax_v >> 5) & 0x7);

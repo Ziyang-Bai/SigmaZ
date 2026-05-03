@@ -4,10 +4,7 @@
  * Licensed under the GNU General Public License v3.0
  */
 
-/*
- * SigmaLM - Floating Point Benchmark (Mandelbrot)
- * Target: Win16/Win32
- */
+
 
 #include <windows.h>
 #include <stdio.h>
@@ -15,11 +12,7 @@
 #include "bench.h"
 #include "timer.h"
 
-/* 
- * Mandelbrot parameters 
- * -2.0 to 1.0 Real
- * -1.0 to 1.0 Imag
- */
+
 #ifdef _WIN32
   #define MAX_ITER 1000
   #define WIDTH 800
@@ -31,10 +24,7 @@
   #define HEIGHT 240
 #endif
 
-/* 
- * Calculates Mandelbrot check for a point (cx, cy)
- * Returns number of iterations before escape.
- */
+
 static int MandelbrotPt(double cx, double cy) {
     double zx = 0.0;
     double zy = 0.0;
@@ -53,16 +43,10 @@ static int MandelbrotPt(double cx, double cy) {
 }
 
 #ifdef __AVX2__
-/* 
- * AVX2 优化路径
-x87、SSE2 标量与 AVX FMA 指令在舍入和精度上的微小差异可能导致曼德勃罗集计算结果发散。
- */
+
 #endif
 
-/*
- * 曼德勃罗集
- * 返回值：每毫秒迭代次数
- */
+
 DWORD RunFloatBenchmark(BENCH_CALLBACK callback) {
     
     double duration;
@@ -112,10 +96,7 @@ DWORD RunFloatBenchmark(BENCH_CALLBACK callback) {
     
     if (duration < 0.001) duration = 0.001;
     
-    /* 
-     * Score = Total Iterations / Duration (ms) 
-     * Output physically meaningful generic: Iterations per ms.
-     */
+    
     {
         double score = (double)total_iters / duration;
         return (DWORD)score;

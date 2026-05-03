@@ -11,11 +11,7 @@
 #include "bench.h"
 #include "timer.h"
 
-/*
- * SigmaZ - Matrix Multiplication Benchmark
- * Computes C = A * B
- * O(N^3) standard algorithm.
- */
+
 
 #define MAT_N 64
 
@@ -25,10 +21,7 @@
   #define MATRIX_LOOPS 1
 #endif
 
-/* 
- * We use a flattened array for matrices to be compatible with standard C malloc.
- * A[row][col] -> A[row * N + col]
- */
+
 
 static void init_matrix(double *m, int n) {
     int i;
@@ -37,11 +30,7 @@ static void init_matrix(double *m, int n) {
     }
 }
 
-/* 
- * Naive implementation 
- * Compiler auto-vectorization target.
- * Returns number of rows processed.
- */
+
 static int mat_mul(const double *A, const double *B, double *C, int n, BENCH_CALLBACK callback) {
     int i, j, k;
     for (i = 0; i < n; i++) {
@@ -161,9 +150,7 @@ double RunMatrixBenchmark(BENCH_CALLBACK callback) {
         
         if (duration <= 0.0) return 0.0;
 
-        /*
-         * Score: Matrices Per Second
-         */
+        
         return total_completed_matrices / duration;
     }
 }

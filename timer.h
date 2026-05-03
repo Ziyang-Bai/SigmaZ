@@ -9,11 +9,7 @@
 
 #include <windows.h>
 
-/*
- * High-Resolution Timer Wrapper
- * - Win32/x64 Uses QueryPerformanceCounter
- * - Win16 Uses GetTickCount
- */
+
 
 void Timer_Init(void);
 void Timer_Start(void);

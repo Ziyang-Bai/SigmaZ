@@ -93,15 +93,7 @@ static double CalcTotalScore(double s_int, double s_float, double s_mem, double 
     if (s_comp < 1.0) s_comp = 1.0;
     if (s_mat < 1.0) s_mat = 1.0;
     
-    /* 
-     * Weights:
-     * Integer: 20%
-     * Float: 20%
-     * Mem Ops: 10%
-     * Crypto: 15%
-     * Compress: 15%
-     * Matrix: 20%
-     */
+    
     {
         double log_sum =
             log(s_int) * 0.20 +

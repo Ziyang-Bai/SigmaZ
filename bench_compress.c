@@ -11,21 +11,13 @@
 #include "bench.h"
 #include "timer.h"
 
-/*
- * SigmaZ - Data Compression Benchmark
- * Algorithm: Simplified LZ77 (Sliding Window)
- * Focus: Integer performance, Branch Prediction, Memory Access Patterns.
- */
+
 
 #define WINDOW_SIZE 4096
 #define MAX_MATCH_LEN 18
 #define MIN_MATCH_LEN 3
 
-/* 
- * Compression Buffer Sizes
- * Standardize on 16KB for all platforms to ensure identical data patterns
- * and identical window/match characteristics.
- */
+
 #define COMP_INPUT_SIZE 16384
 
 #ifdef _WIN32
@@ -51,11 +43,7 @@ static void fill_random_data(unsigned char *buf, size_t size) {
     }
 }
 
-/* 
- * Simplified LZ77 Compress 
- * Returns compressed size (simulated, we don't strictly enable bit-packing 
- * to keep code clean and focused on the search algo).
- */
+
 static unsigned long lz_compress(const unsigned char *src, unsigned long src_len, unsigned char *dst) {
     unsigned long src_pos = 0;
     unsigned long dst_pos = 0;

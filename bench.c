@@ -4,15 +4,7 @@
  * Licensed under the GNU General Public License v3.0
  */
 
-/*
- * SigmaLM - PI Benchmark Engine (Machin-like Formula)
- * Target: Win16/Win32/Win64
- * Standard: ANSI C (C89)
- * Compiler: Open Watcom v2 / MSVC 6.0 / GCC
- * Note: Uses basic integer arrays to simulate high-precision arithmetic.
- * Algorithm: Machin-like formula: pi/4 = 4 * arctan(1/5) - arctan(1/239)
- * Precision: 2000 decimal digits.
- */
+
 
 #include <windows.h>
 #include <stdio.h>
@@ -32,12 +24,7 @@ int g_BenchTimedOut = 0;
 
 #define ARR_SIZE ((DIGITS / 4) + 10)
 
-/* 
- * Use long to ensure at least 32-bit width on 16-bit systems (Win16).
- * In 16-bit mode, int is 16-bit (-32768 to 32767), which is too small for
- * intermediate calculations like remainder * BASE (can be up to ~239 * 10000 = 2,390,000).
- * long is 32-bit guaranteed in C89 on these platforms.
- */
+
 typedef long NUMBER;
 
 
@@ -52,10 +39,7 @@ static NUMBER g_pi[ARR_SIZE];
 static NUMBER g_term[ARR_SIZE];
 static NUMBER g_temp[ARR_SIZE];
 
-/* 
- * BigInt Division: divident = divident / divisor 
- * Returns non-zero if result is not zero (to check convergence) 
- */
+
 static int BigDiv(NUMBER *n, NUMBER divisor) {
     NUMBER remainder = 0;
     int i;
@@ -96,16 +80,9 @@ static void BigSub(NUMBER *target, NUMBER *source) {
 }
 
 
-/* static void BigSet(NUMBER *n, NUMBER val) {
-    int i;
-    for (i = 0; i < ARR_SIZE; i++) n[i] = 0;
-    n[0] = val;
-} */
 
-/* 
- * Simplified Set-and-Divide to initialize 1/x 
- * target = 1/x
- */
+
+
 static void BigSetInv(NUMBER *target, NUMBER x) {
     NUMBER remainder = 1; 
     int i;
@@ -127,14 +104,7 @@ static void BigMulShort(NUMBER *target, NUMBER multiplier) {
     }
 }
 
-/* 
- * Calculate arctan(1/x) and add/sub to result 
- * formula: 1/x - 1/3x^3 + 1/5x^5 ...
- * We multiply the entire result by 'factor' (e.g. 4 for 4*arctan(1/5))
- * operation: result += factor * arctan(1/x) 
- * 
- * initial_sign: 1 for adding ( + - + - ), -1 for subtracting ( - + - + ) 
- */
+
 static void AddArcTan(BenchContext *ctx, NUMBER *result, NUMBER x, NUMBER factor, int initial_sign) {
     NUMBER x2 = x * x;
     NUMBER divisor = 1;
@@ -171,18 +141,11 @@ static void AddArcTan(BenchContext *ctx, NUMBER *result, NUMBER x, NUMBER factor
     }
 }
 
-/*
- * Core workload function.
- * Calculates Pi one time (or loop times per pass).
- * Returns number of loops completed.
- */
+
 static int DoBenchmarkWork(BenchContext *ctx) {
     int loop_idx;
     
-    /* 
-     * Machin Formula: pi/4 = 4 * arctan(1/5) - arctan(1/239)
-     * So pi = 16 * arctan(1/5) - 4 * arctan(1/239)
-     */
+    
     for (loop_idx = 0; loop_idx < BENCH_LOOPS; loop_idx++) {
         
         Timer_Stop();
@@ -203,11 +166,7 @@ static int DoBenchmarkWork(BenchContext *ctx) {
     return BENCH_LOOPS;
 }
 
-/*
- * Run one pass and return duration in ms.
- * Used by Single Thread Benchmark.
- * loops_out: (Optional) Output for actual loops completed.
- */
+
 static double RunOnePassStatic(int *loops_out) {
     BenchContext ctx;
     int completed;
@@ -226,9 +185,7 @@ static double RunOnePassStatic(int *loops_out) {
     return Timer_GetElapsedMs();
 }
 
-/*
- * SAMPLES for averaging results
- */
+
 #define SAMPLES 5
 
 int CompareDouble(const void * a, const void * b) {
@@ -239,9 +196,7 @@ int CompareDouble(const void * a, const void * b) {
     return 0;
 }
 
-/*
- * Single Thread Benchmark Entry Point
- */
+
 DWORD RunSingleThreadBenchmark(BENCH_CALLBACK callback) {
     double times[SAMPLES];
     int loops_done[SAMPLES];
@@ -284,10 +239,7 @@ DWORD RunSingleThreadBenchmark(BENCH_CALLBACK callback) {
         double avg_time = total / (SAMPLES - 2);
         if (avg_time < 0.001) avg_time = 0.001; 
 
-        /* 
-         * CALCULATE NORMALIZED SCORE 
-         * Score = Work (Loops) * Scale / Time(ms)
-         */
+        
         return (DWORD)(((double)BENCH_LOOPS * (double)BENCH_SCORE_SCALE) / avg_time);
     }
 }
@@ -308,10 +260,8 @@ DWORD WINAPI BenchThreadProc(LPVOID lpParam) {
     ThreadParams* params = (ThreadParams*)lpParam;
     
     
-    /* We must allocate dynamically because stack space per thread might be limited 
-       and we can't use globals. */
-    /* 2KB per array is small enough for stack on Win32 (1MB stack default), 
-       but malloc is safer for large arrays if we extend precision later. */
+    
+    
     params->ctx.pi = (NUMBER*)malloc(sizeof(NUMBER) * ARR_SIZE);
     params->ctx.term = (NUMBER*)malloc(sizeof(NUMBER) * ARR_SIZE);
     params->ctx.temp = (NUMBER*)malloc(sizeof(NUMBER) * ARR_SIZE);

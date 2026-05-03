@@ -11,12 +11,7 @@
 #include "bench.h"
 #include "timer.h"
 
-/* 
- * SigmaZ - Cryptography Benchmark 
- * Algorithms: 
- * - Win16/Generic: CRC32 (Table based)
- * - Win32/64: AES-NI / SHA (Stub for future expansion)
- */
+
 
 
 #define CRC_POLY 0xEDB88320
@@ -61,10 +56,7 @@ static unsigned long crc32(const unsigned char *buf, int len) {
     return update_crc(0xffffffffL, buf, len) ^ 0xffffffffL;
 }
 
-/*
- * Run Crypto Benchmark
- * Returns: Throughput in KB/s
- */
+
 double RunCryptoBenchmark(BENCH_CALLBACK callback) {
     unsigned char *buffer;
     unsigned long buf_size;
@@ -79,10 +71,7 @@ double RunCryptoBenchmark(BENCH_CALLBACK callback) {
     
     (void)callback; 
     
-    /*
-     * Sizing:
-     * Standardize on 16KB for all platforms to ensure consistent buffer size.
-     */
+    
 #ifdef _WIN32
     buf_size = 16384;       
     loop_count = 100000;

@@ -4,10 +4,7 @@
  * Licensed under the GNU General Public License v3.0
  */
 
-/*
- * SigmaLM - Memory Bandwidth Benchmark (Stream Copy)
- * Target: Win16/Win32
- */
+
 
 #include <windows.h>
 #include <stdio.h>
@@ -29,10 +26,7 @@ volatile unsigned char g_mem_acc = 0;
   #define WIN16_BLOCK_SIZE 60000 
 #endif
 
-/*
- * Run Memory Bandwidth Benchmark
- * Returns Score (MB/s)
- */
+
 DWORD RunMemoryBenchmark(BENCH_CALLBACK callback) {
     double duration = 0;
     unsigned long total_bytes = 0;
@@ -131,10 +125,7 @@ DWORD RunMemoryBenchmark(BENCH_CALLBACK callback) {
 
     if (duration < 0.001) duration = 0.001;
 
-    /*
-     * Calculate MB/s
-     * (Total Bytes / 1024 / 1024) / (Duration / 1000)
-     */
+    
     {
         double mb_s = ((double)total_bytes / (1024.0 * 1024.0)) / (duration / 1000.0);
         return (DWORD)mb_s;
